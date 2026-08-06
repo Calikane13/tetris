@@ -1,57 +1,49 @@
-// ARCHIVO TEMPORAL — Tarea T09.
-// Pinta las 28 formas para revisarlas a ojo. Se sustituye en la fase 3.
+// PROVISIONAL — Tarea T14.
+// Muestra el tablero en texto para comprobar que la gravedad funciona.
+// Se sustituye por los componentes reales en la fase 3.
 
-import { PIECE_COLORS } from './engine/constants';
-import { ALL_PIECES, SHAPES } from './engine/tetrominoes';
-import type { PieceType, Rotation } from './engine/types';
-
-const ROTATIONS: Rotation[] = [0, 1, 2, 3];
-
-function ShapeGrid({ type, rotation }: { type: PieceType; rotation: Rotation }) {
-  const shape = SHAPES[type][rotation];
-  const size = shape.length;
-
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-slate-500">rot {rotation}</span>
-      <div
-        className="grid gap-px bg-slate-800 p-px"
-        style={{ gridTemplateColumns: `repeat(${size}, 1.25rem)` }}
-      >
-        {shape.flatMap((line, row) =>
-          line.split('').map((char, col) => (
-            <div
-              key={`${row}-${col}`}
-              className={
-                char === 'X'
-                  ? `h-5 w-5 ${PIECE_COLORS[type]}`
-                  : 'h-5 w-5 bg-slate-900'
-              }
-            />
-          )),
-        )}
-      </div>
-    </div>
-  );
-}
+import { useEffect } from 'react';
+import { getCells } from './engine/tetrominoes';
+import { useGameLoop } from './hooks/useGameLoop';
+import { useGameStore } from './store/useGameStore';
 
 function App() {
-  return (
-    <main className="min-h-dvh bg-slate-950 p-8 text-slate-200">
-      <h1 className="mb-8 text-2xl font-bold">Revisión de piezas (T09)</h1>
+  const board = useGameStore((state) => state.board);
+  const active = useGameStore((state) => state.active);
+  const status = useGameStore((state) => state.status);
+  const score = useGameStore((state) => state.score);
+  const startGame = useGameStore((state) => state.startGame);
 
-      <div className="flex flex-col gap-8">
-        {ALL_PIECES.map((type) => (
-          <section key={type} className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold">Pieza {type}</h2>
-            <div className="flex flex-wrap gap-6">
-              {ROTATIONS.map((rotation) => (
-                <ShapeGrid key={rotation} type={type} rotation={rotation} />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+  useGameLoop();
+
+  // Arranca una partida automáticamente al cargar, para no necesitar botones.
+  useEffect(() => {
+    startGame();
+  }, [startGame]);
+
+  // Combina el tablero con la pieza activa solo para pintar.
+  const view = board.map((row) => [...row]);
+
+  if (active) {
+    for (const cell of getCells(active.type, active.rotation)) {
+      const row = active.row + cell.row;
+      const col = active.col + cell.col;
+      if (row >= 0 && row < view.length && col >= 0 && col < view[0].length) {
+        view[row][col] = active.type;
+      }
+    }
+  }
+
+  return (
+    <main className="min-h-dvh bg-slate-950 p-8 font-mono text-slate-200">
+      <h1 className="mb-4 text-xl font-bold">Prueba de gravedad (T14)</h1>
+      <p className="mb-4 text-sm text-slate-400">
+        estado: {status} · puntuación: {score}
+      </p>
+
+      <pre className="text-sm leading-tight">
+        {view.map((row) => row.map((cell) => (cell ? '#' : '.')).join(' ')).join('\n')}
+      </pre>
     </main>
   );
 }
