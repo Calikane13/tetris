@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Board } from './components/Board';
 import { Hud } from './components/Hud';
 import { Overlay, OverlayButton } from './components/Overlay';
+import { SettingsPanel } from './components/SettingsPanel';
 import { TouchControls } from './components/TouchControls';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useKeyboard } from './hooks/useKeyboard';
@@ -16,6 +17,8 @@ function App() {
   const resumeSavedGame = useGameStore((state) => state.resumeSavedGame);
   const togglePause = useGameStore((state) => state.togglePause);
   const exitToMenu = useGameStore((state) => state.exitToMenu);
+
+  const [showSettings, setShowSettings] = useState(false);
 
   useGameLoop();
   useKeyboard();
@@ -42,7 +45,13 @@ function App() {
         <div className="relative">
           <Board />
 
-          {status === 'menu' && (
+          {showSettings && (
+            <Overlay title="Ajustes">
+              <SettingsPanel onClose={() => setShowSettings(false)} />
+            </Overlay>
+          )}
+
+          {!showSettings && status === 'menu' && (
             <Overlay title="Bloques">
               <p className="max-w-xs text-sm text-slate-400">
                 Flechas para mover y rotar. Espacio para caída rápida. P para pausar.
@@ -63,12 +72,29 @@ function App() {
               >
                 {hasSavedGame ? 'Empezar de cero' : 'Jugar'}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setShowSettings(true)}
+                className="text-sm text-slate-400 underline hover:text-slate-200"
+              >
+                Ajustes
+              </button>
             </Overlay>
           )}
 
-          {status === 'paused' && (
+          {!showSettings && status === 'paused' && (
             <Overlay title="Pausa">
               <OverlayButton onClick={togglePause}>Continuar</OverlayButton>
+
+              <button
+                type="button"
+                onClick={() => setShowSettings(true)}
+                className="text-sm text-slate-400 underline hover:text-slate-200"
+              >
+                Ajustes
+              </button>
+
               <button
                 type="button"
                 onClick={exitToMenu}
@@ -79,7 +105,7 @@ function App() {
             </Overlay>
           )}
 
-          {status === 'gameover' && (
+          {!showSettings && status === 'gameover' && (
             <Overlay title="Fin de partida">
               <p className="text-slate-300">
                 {score} puntos · {lines} líneas

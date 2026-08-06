@@ -9,11 +9,13 @@ import { getGhostPosition } from '../engine/piece';
 import { getCells } from '../engine/tetrominoes';
 import type { Board as BoardType, PieceType } from '../engine/types';
 import { useGameStore } from '../store/useGameStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { Cell } from './Cell';
 
 export function Board() {
   const board = useGameStore((state) => state.board);
   const active = useGameStore((state) => state.active);
+  const showGhost = useSettingsStore((state) => state.ghost);
 
   // Copia del tablero donde se pintará también la pieza activa.
   const filled: BoardType = board.map((row) => [...row]);
@@ -22,13 +24,15 @@ export function Board() {
   const ghost: (PieceType | null)[][] = board.map((row) => row.map(() => null));
 
   if (active) {
-    const ghostPiece = getGhostPosition(board, active);
+    if (showGhost) {
+      const ghostPiece = getGhostPosition(board, active);
 
-    for (const cell of getCells(ghostPiece.type, ghostPiece.rotation)) {
-      const row = ghostPiece.row + cell.row;
-      const col = ghostPiece.col + cell.col;
-      if (row >= 0 && row < BOARD_HEIGHT && col >= 0 && col < BOARD_WIDTH) {
-        ghost[row][col] = ghostPiece.type;
+      for (const cell of getCells(ghostPiece.type, ghostPiece.rotation)) {
+        const row = ghostPiece.row + cell.row;
+        const col = ghostPiece.col + cell.col;
+        if (row >= 0 && row < BOARD_HEIGHT && col >= 0 && col < BOARD_WIDTH) {
+          ghost[row][col] = ghostPiece.type;
+        }
       }
     }
 

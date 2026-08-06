@@ -1,34 +1,31 @@
 // Controles de teclado.
 //
-// La repetición al mantener pulsado no se delega al navegador: la lleva este
-// hook con sus propios tiempos (regla R13). Por eso se ignoran los eventos que
-// llegan con event.repeat.
+// Las teclas ya no están fijas en el código: se leen de los ajustes, para que
+// el jugador pueda reasignarlas (regla R42).
+//
+// La repetición al mantener pulsado la lleva este hook con sus propios tiempos
+// (regla R13), no el navegador. Por eso se ignoran los eventos con event.repeat.
 //
 // Se compara con event.code y no con event.key para que las teclas de letra
 // funcionen igual en cualquier distribución de teclado.
 
 import { useEffect, useRef } from 'react';
 import { REPEAT_DELAY, REPEAT_INTERVAL } from '../engine/constants';
+import type { Action } from '../storage/settings';
 import { useGameStore } from '../store/useGameStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
-/** Teclas que el juego consume y que no deben desplazar la página. */
-const GAME_KEYS = new Set([
-  'ArrowLeft',
-  'ArrowRight',
-  'ArrowDown',
-  'ArrowUp',
-  'Space',
-  'KeyZ',
-  'KeyP',
-]);
+/** Acciones que se repiten al mantener la tecla pulsada. */
+const REPEATABLE: readonly Action[] = ['left', 'right', 'softDrop'];
 
 export function useKeyboard(): void {
-  // Guarda el temporizador de la tecla de movimiento que se mantiene pulsada.
+  const keys = useSettingsStore((state) => state.keys);
   const repeatRef = useRef<number | null>(null);
 
   useEffect(() => {
     const stopRepeat = () => {
       if (repeatRef.current !== null) {
+        clearTimeout(repeatRef.current);
         clearInterval(repeatRef.current);
         repeatRef.current = null;
       }
@@ -40,50 +37,60 @@ export function useKeyboard(): void {
 
       // Primera repetición tras una pausa, para que un toque suelto mueva una
       // sola celda; después, repeticiones rápidas.
-      const timeout = window.setTimeout(() => {
+      repeatRef.current = window.setTimeout(() => {
         repeatRef.current = window.setInterval(action, REPEAT_INTERVAL);
       }, REPEAT_DELAY);
+    };
 
-      repeatRef.current = timeout;
+    /** Busca qué acción tiene asignada un código de tecla. */
+    const actionForCode = (code: string): Action | null => {
+      for (const [action, assigned] of Object.entries(keys)) {
+        if (assigned === code) return action as Action;
+      }
+      return null;
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (GAME_KEYS.has(event.code)) {
-        event.preventDefault();
-      }
+      const action = actionForCode(event.code);
+      if (!action) return;
 
-      // La repetición la controlamos nosotros, no el navegador.
+      // Solo se bloquea el comportamiento del navegador en las teclas que el
+      // juego usa realmente, para no romper atajos como F5 o Ctrl+T.
+      event.preventDefault();
+
+      // La repetición la controlamos nosotros.
       if (event.repeat) return;
 
       const store = useGameStore.getState();
 
-      switch (event.code) {
-        case 'ArrowLeft':
+      switch (action) {
+        case 'left':
           startRepeat(() => useGameStore.getState().moveLeft());
           break;
-        case 'ArrowRight':
+        case 'right':
           startRepeat(() => useGameStore.getState().moveRight());
           break;
-        case 'ArrowDown':
+        case 'softDrop':
           startRepeat(() => useGameStore.getState().softDrop());
           break;
-        case 'ArrowUp':
-          store.rotateCW();
-          break;
-        case 'KeyZ':
-          store.rotateCCW();
-          break;
-        case 'Space':
+        case 'hardDrop':
           store.hardDrop();
           break;
-        case 'KeyP':
+        case 'rotateCW':
+          store.rotateCW();
+          break;
+        case 'rotateCCW':
+          store.rotateCCW();
+          break;
+        case 'pause':
           store.togglePause();
           break;
       }
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (['ArrowLeft', 'ArrowRight', 'ArrowDown'].includes(event.code)) {
+      const action = actionForCode(event.code);
+      if (action && REPEATABLE.includes(action)) {
         stopRepeat();
       }
     };
@@ -102,5 +109,7 @@ export function useKeyboard(): void {
       window.removeEventListener('blur', onBlur);
       stopRepeat();
     };
-  }, []);
+    // El efecto se rehace al cambiar las teclas, para que una reasignación
+    // tenga efecto inmediato sin recargar la página.
+  }, [keys]);
 }
