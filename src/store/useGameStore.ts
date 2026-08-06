@@ -17,6 +17,7 @@ import {
 import { dropIntervalForLevel, levelForLines, scoreForLines } from '../engine/scoring';
 import type { ActivePiece, Board, GameStatus, PieceType } from '../engine/types';
 import { loadBestScore, saveBestScore } from '../storage/bestScore';
+import { clearSavedGame, loadSavedGame, saveGame } from '../storage/savedGame';
 
 interface GameStore {
   board: Board;
@@ -27,8 +28,11 @@ interface GameStore {
   lines: number;
   level: number;
   status: GameStatus;
+  /** Si hay una partida guardada que se puede reanudar desde el menú. */
+  hasSavedGame: boolean;
 
   startGame: () => void;
+  resumeSavedGame: () => void;
   moveLeft: () => void;
   moveRight: () => void;
   rotateCW: () => void;
@@ -38,6 +42,7 @@ interface GameStore {
   tick: () => void;
   togglePause: () => void;
   exitToMenu: () => void;
+  persist: () => void;
 }
 
 /**
@@ -56,10 +61,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lines: 0,
   level: 1,
   status: 'menu',
+  hasSavedGame: loadSavedGame() !== null,
 
   startGame: () => {
     const first = randomPiece();
     dropAccumulator = 0;
+    clearSavedGame();
 
     set({
       board: createEmptyBoard(),
@@ -68,6 +75,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       score: 0,
       lines: 0,
       level: 1,
+      status: 'playing',
+      hasSavedGame: false,
+    });
+  },
+
+  resumeSavedGame: () => {
+    const saved = loadSavedGame();
+
+    // Si entre la carga del menú y la pulsación del botón la partida dejó de
+    // ser válida, se empieza una nueva en lugar de fallar.
+    if (!saved) {
+      get().startGame();
+      return;
+    }
+
+    dropAccumulator = 0;
+
+    set({
+      board: saved.board,
+      active: saved.active,
+      next: saved.next,
+      score: saved.score,
+      lines: saved.lines,
+      level: saved.level,
       status: 'playing',
     });
   },
@@ -148,11 +179,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
   togglePause: () => {
     const { status } = get();
 
-    if (status === 'playing') set({ status: 'paused' });
-    else if (status === 'paused') set({ status: 'playing' });
+    if (status === 'playing') {
+      get().persist();
+      set({ status: 'paused' });
+    } else if (status === 'paused') {
+      set({ status: 'playing' });
+    }
   },
 
-  exitToMenu: () => set({ status: 'menu' }),
+  exitToMenu: () => {
+    get().persist();
+    set({ status: 'menu', hasSavedGame: loadSavedGame() !== null });
+  },
+
+  /**
+   * Vuelca la partida actual a localStorage. La llaman la pausa, la salida al
+   * menú y el evento de ocultar la pestaña.
+   */
+  persist: () => {
+    const { board, active, next, score, lines, level, status } = get();
+
+    // Solo tiene sentido guardar una partida viva.
+    if (status !== 'playing' || !active) return;
+
+    saveGame({ board, active, next, score, lines, level });
+  },
 }));
 
 /**
@@ -184,6 +235,8 @@ function lockAndAdvance(
   // Es el único momento en que se guarda el récord: hacerlo en cada punto
   // escribiría en localStorage cientos de veces por partida sin ninguna ganancia.
   if (!isValidPosition(cleared, upcoming)) {
+    clearSavedGame();
+
     set({
       board: cleared,
       active: null,
@@ -192,14 +245,28 @@ function lockAndAdvance(
       lines: totalLines,
       level: newLevel,
       status: 'gameover',
+      hasSavedGame: false,
     });
     return;
   }
 
+  const nextPiece = randomPiece(state.next);
+
   set({
     board: cleared,
     active: upcoming,
-    next: randomPiece(state.next),
+    next: nextPiece,
+    score: newScore,
+    lines: totalLines,
+    level: newLevel,
+  });
+
+  // Se guarda al fijar cada pieza: es el punto natural de la partida, y así
+  // como mucho se pierde una pieza si el navegador se cierra de golpe.
+  saveGame({
+    board: cleared,
+    active: upcoming,
+    next: nextPiece,
     score: newScore,
     lines: totalLines,
     level: newLevel,

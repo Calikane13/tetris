@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Board } from './components/Board';
 import { Hud } from './components/Hud';
 import { Overlay, OverlayButton } from './components/Overlay';
@@ -10,12 +11,29 @@ function App() {
   const status = useGameStore((state) => state.status);
   const score = useGameStore((state) => state.score);
   const lines = useGameStore((state) => state.lines);
+  const hasSavedGame = useGameStore((state) => state.hasSavedGame);
   const startGame = useGameStore((state) => state.startGame);
+  const resumeSavedGame = useGameStore((state) => state.resumeSavedGame);
   const togglePause = useGameStore((state) => state.togglePause);
   const exitToMenu = useGameStore((state) => state.exitToMenu);
 
   useGameLoop();
   useKeyboard();
+
+  // Guarda la partida cuando la pestaña deja de verse. Es el único momento
+  // fiable para hacerlo en móvil: al cambiar de aplicación el navegador puede
+  // descargar la página sin previo aviso, y eventos como beforeunload no se
+  // disparan de forma consistente.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') {
+        useGameStore.getState().persist();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, []);
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-slate-950 p-4">
@@ -29,7 +47,22 @@ function App() {
               <p className="max-w-xs text-sm text-slate-400">
                 Flechas para mover y rotar. Espacio para caída rápida. P para pausar.
               </p>
-              <OverlayButton onClick={startGame}>Jugar</OverlayButton>
+
+              {hasSavedGame && (
+                <OverlayButton onClick={resumeSavedGame}>Continuar partida</OverlayButton>
+              )}
+
+              <button
+                type="button"
+                onClick={startGame}
+                className={
+                  hasSavedGame
+                    ? 'text-sm text-slate-400 underline hover:text-slate-200'
+                    : 'rounded-lg bg-slate-100 px-6 py-3 font-semibold text-slate-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400'
+                }
+              >
+                {hasSavedGame ? 'Empezar de cero' : 'Jugar'}
+              </button>
             </Overlay>
           )}
 
@@ -58,7 +91,8 @@ function App() {
 
         <Hud />
       </div>
-    <div className="fixed inset-x-0 bottom-0 p-3 md:hidden">
+
+      <div className="fixed inset-x-0 bottom-0 p-3 md:hidden">
         <TouchControls />
       </div>
     </main>
