@@ -1,6 +1,7 @@
 import { Board } from './components/Board';
 import { Hud } from './components/Hud';
 import { Overlay, OverlayButton } from './components/Overlay';
+import { TouchControls } from './components/TouchControls';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useGameStore } from './store/useGameStore';
@@ -56,6 +57,9 @@ function App() {
         </div>
 
         <Hud />
+      </div>
+    <div className="fixed inset-x-0 bottom-0 p-3 md:hidden">
+        <TouchControls />
       </div>
     </main>
   );
