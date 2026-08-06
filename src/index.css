@@ -13,6 +13,39 @@ body {
 }
 
 /*
+  Aviso de subida de nivel (regla R36).
+
+  La animación se declara dentro de una consulta de "no-preference": quien tenga
+  activada la reducción de movimiento verá el aviso aparecer y desaparecer sin
+  desplazamiento ni escala, que es justo lo que pide el criterio NF6. No hace
+  falta anularla después, porque nunca llega a aplicarse.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  .level-up-banner {
+    animation: level-up 1.2s ease-out;
+  }
+}
+
+@keyframes level-up {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.98);
+  }
+}
+
+/*
   Respeto a prefers-reduced-motion (criterio C2 de la constitución).
 
   Quien tiene activada esta preferencia del sistema suele hacerlo por mareo o

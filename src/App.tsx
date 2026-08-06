@@ -8,6 +8,7 @@ import { useGameLoop } from './hooks/useGameLoop';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useGameStore } from './store/useGameStore';
 import { LiveRegion } from './components/LiveRegion';
+import { LevelUpBanner } from './components/LevelUpBanner';
 
 function App() {
   const status = useGameStore((state) => state.status);
@@ -45,6 +46,7 @@ function App() {
         {/* relative para que las capas se posicionen sobre el tablero */}
         <div className="relative">
           <Board />
+          <LevelUpBanner />
 
           {showSettings && (
             <Overlay title="Ajustes">
