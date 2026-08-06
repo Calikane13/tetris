@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+:root {
+  /* Tamaño de celda. Se adapta al ancho y al alto de la pantalla para que el
+     tablero entero quepa sin medir nada desde JavaScript. */
+  --cell: min(8vw, 3.5vh, 30px);
+}
