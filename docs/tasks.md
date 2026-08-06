@@ -20,8 +20,13 @@ Leyenda de columnas: **Archivos** indica qué se crea o modifica.
   en la carpeta, `npm install`, `npm run dev`.
 - **Hecho cuando:** se ve la página de bienvenida de Vite en el navegador.
 
-### T02 · Instalar y configurar Tailwind
-- **Archivos:** `tailwind.config.js`, `postcss.config.js`, `src/index.css`.
+### T02 · Instalar y configurar Tailwind v4
+- **Archivos:** `vite.config.ts`, `src/index.css`, `src/App.tsx`. Se borra
+  `src/App.css`.
+- **Qué hacer:** `npm install -D tailwindcss @tailwindcss/vite`, activar el
+  plugin en `vite.config.ts` y poner `@import "tailwindcss";` en `index.css`.
+- **Aviso:** no se crean `tailwind.config.js` ni `postcss.config.js`. Son de la
+  v3. Ver sección 5.9 de `plan.md`.
 - **Hecho cuando:** una clase de Tailwind (por ejemplo `text-red-500`) cambia
   visiblemente un texto de `App.tsx`.
 
@@ -102,8 +107,8 @@ navegador, importando las funciones desde `App.tsx` de forma temporal o usando
 - **Funciones:** `scoreForLines(lines, level)`, `levelForLines(totalLines)`,
   `dropIntervalForLevel(level)`.
 - **Reglas:** R10, R31, R35.
-- **Hecho cuando:** `dropIntervalForLevel(1)` da 800, `(2)` da 730 y `(11)` da 80;
-  y `scoreForLines(4, 3)` da 2400.
+- **Hecho cuando:** `dropIntervalForLevel(1)` da 800, `(2)` da 730, `(11)` da 100
+  y `(12)` da 80; y `scoreForLines(4, 3)` da 2400.
 
 ---
 

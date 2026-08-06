@@ -107,8 +107,8 @@ Lo indicado en la sección 6 de `constitution.md`. En particular: **no hay hold*
 - **R9.** La pieza activa baja una celda cada cierto intervalo de tiempo.
 - **R10.** El intervalo en milisegundos se calcula así:
   `intervalo = máximo(80, 800 − (nivel − 1) × 70)`.
-  Es decir: 800 ms en el nivel 1, 730 ms en el nivel 2, y así hasta un suelo de
-  80 ms a partir del nivel 11.
+  Es decir: 800 ms en el nivel 1, 730 ms en el nivel 2, 100 ms en el nivel 11, y
+  un suelo de 80 ms a partir del nivel 12.
 - **R11.** La velocidad del juego no depende de la frecuencia de refresco de la
   pantalla.
 
@@ -180,7 +180,7 @@ Lo indicado en la sección 6 de `constitution.md`. En particular: **no hay hold*
   `nivel = parte entera de (líneas totales ÷ 10) + 1`.
 - **R36.** Al subir de nivel se muestra un aviso breve en pantalla.
 - **R37.** No hay nivel máximo, pero la velocidad deja de aumentar a partir del
-  nivel 11 (regla R10).
+  nivel 12 (regla R10).
 
 ### 5.11 Fin de partida
 
