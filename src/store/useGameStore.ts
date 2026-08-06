@@ -16,8 +16,10 @@ import {
 } from '../engine/piece';
 import { dropIntervalForLevel, levelForLines, scoreForLines } from '../engine/scoring';
 import type { ActivePiece, Board, GameStatus, PieceType } from '../engine/types';
+import { sfx } from '../audio/sfx';
 import { loadBestScore, saveBestScore } from '../storage/bestScore';
 import { clearSavedGame, loadSavedGame, saveGame } from '../storage/savedGame';
+import { useSettingsStore } from './useSettingsStore';
 
 interface GameStore {
   board: Board;
@@ -51,6 +53,16 @@ interface GameStore {
  * bucle de juego a través de addTime().
  */
 let dropAccumulator = 0;
+
+/**
+ * Reproduce un efecto solo si el sonido está activado en los ajustes.
+ * Centralizarlo aquí evita repetir la comprobación en cada acción.
+ */
+function play(effect: () => void): void {
+  if (useSettingsStore.getState().sound) {
+    effect();
+  }
+}
 
 export const useGameStore = create<GameStore>((set, get) => ({
   board: createEmptyBoard(),
@@ -108,7 +120,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (status !== 'playing' || !active) return;
 
     const moved = move(board, active, 0, -1);
-    if (moved) set({ active: moved });
+    if (moved) {
+      set({ active: moved });
+      play(sfx.move);
+    }
   },
 
   moveRight: () => {
@@ -116,7 +131,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (status !== 'playing' || !active) return;
 
     const moved = move(board, active, 0, 1);
-    if (moved) set({ active: moved });
+    if (moved) {
+      set({ active: moved });
+      play(sfx.move);
+    }
   },
 
   rotateCW: () => {
@@ -124,7 +142,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (status !== 'playing' || !active) return;
 
     const rotated = rotate(board, active, 1);
-    if (rotated) set({ active: rotated });
+    if (rotated) {
+      set({ active: rotated });
+      play(sfx.rotate);
+    }
   },
 
   rotateCCW: () => {
@@ -132,7 +153,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (status !== 'playing' || !active) return;
 
     const rotated = rotate(board, active, -1);
-    if (rotated) set({ active: rotated });
+    if (rotated) {
+      set({ active: rotated });
+      play(sfx.rotate);
+    }
   },
 
   softDrop: () => {
@@ -160,6 +184,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       score: score + distance * HARD_DROP_POINTS,
     });
 
+    play(sfx.hardDrop);
     lockAndAdvance(set, get);
   },
 
@@ -231,11 +256,24 @@ function lockAndAdvance(
   const upcoming = spawnPiece(state.next);
   dropAccumulator = 0;
 
+  // El sonido de limpiar líneas sustituye al de fijar: si sonaran los dos a la
+  // vez se solaparían y se oiría un ruido sucio.
+  if (clearedCount > 0) {
+    play(() => sfx.clear(clearedCount));
+  } else {
+    play(sfx.lock);
+  }
+
+  if (newLevel > state.level) {
+    play(sfx.levelUp);
+  }
+
   // Si la pieza nueva no cabe nada más aparecer, la partida termina (regla R38).
   // Es el único momento en que se guarda el récord: hacerlo en cada punto
   // escribiría en localStorage cientos de veces por partida sin ninguna ganancia.
   if (!isValidPosition(cleared, upcoming)) {
     clearSavedGame();
+    play(sfx.gameOver);
 
     set({
       board: cleared,
