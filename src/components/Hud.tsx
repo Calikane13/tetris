@@ -1,4 +1,4 @@
-// Puntuación, líneas, nivel y siguiente pieza (regla R30).
+// Puntuación, récord, líneas, nivel y siguiente pieza (reglas R30 y R40).
 //
 // La puntuación va en una región aria-live para que un lector de pantalla
 // anuncie los cambios sin que el usuario tenga que ir a buscarla.
@@ -17,6 +17,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 export function Hud() {
   const score = useGameStore((state) => state.score);
+  const best = useGameStore((state) => state.best);
   const lines = useGameStore((state) => state.lines);
   const level = useGameStore((state) => state.level);
   const next = useGameStore((state) => state.next);
@@ -26,6 +27,7 @@ export function Hud() {
       <div aria-live="polite" aria-atomic="true">
         <Stat label="Puntos" value={score} />
       </div>
+      <Stat label="Récord" value={best} />
       <Stat label="Líneas" value={lines} />
       <Stat label="Nivel" value={level} />
       <NextPiece type={next} />

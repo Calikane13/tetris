@@ -16,12 +16,14 @@ import {
 } from '../engine/piece';
 import { dropIntervalForLevel, levelForLines, scoreForLines } from '../engine/scoring';
 import type { ActivePiece, Board, GameStatus, PieceType } from '../engine/types';
+import { loadBestScore, saveBestScore } from '../storage/bestScore';
 
 interface GameStore {
   board: Board;
   active: ActivePiece | null;
   next: PieceType;
   score: number;
+  best: number;
   lines: number;
   level: number;
   status: GameStatus;
@@ -50,6 +52,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   active: null,
   next: randomPiece(),
   score: 0,
+  best: loadBestScore(),
   lines: 0,
   level: 1,
   status: 'menu',
@@ -178,11 +181,14 @@ function lockAndAdvance(
   dropAccumulator = 0;
 
   // Si la pieza nueva no cabe nada más aparecer, la partida termina (regla R38).
+  // Es el único momento en que se guarda el récord: hacerlo en cada punto
+  // escribiría en localStorage cientos de veces por partida sin ninguna ganancia.
   if (!isValidPosition(cleared, upcoming)) {
     set({
       board: cleared,
       active: null,
       score: newScore,
+      best: saveBestScore(newScore),
       lines: totalLines,
       level: newLevel,
       status: 'gameover',
