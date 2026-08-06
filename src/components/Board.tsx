@@ -47,6 +47,9 @@ export function Board() {
 
   return (
     <div
+      // Decorativo para el lector de pantalla: recorrer 200 celdas no aporta
+      // nada. El estado del juego se anuncia desde LiveRegion.
+      aria-hidden="true"
       className="grid gap-px border-2 border-slate-700 bg-slate-800 p-px"
       style={{
         gridTemplateColumns: `repeat(${BOARD_WIDTH}, var(--cell))`,

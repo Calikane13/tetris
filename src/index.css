@@ -5,3 +5,27 @@
      tablero entero quepa sin medir nada desde JavaScript. */
   --cell: min(8vw, 3.5vh, 30px);
 }
+
+/* Evita que un gesto sobre el tablero desplace la página en móvil. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/*
+  Respeto a prefers-reduced-motion (criterio C2 de la constitución).
+
+  Quien tiene activada esta preferencia del sistema suele hacerlo por mareo o
+  sensibilidad al movimiento. Se anulan las transiciones y animaciones
+  decorativas; la caída de las piezas no se toca, porque es el juego en sí y no
+  un adorno.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

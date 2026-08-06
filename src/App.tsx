@@ -7,6 +7,7 @@ import { TouchControls } from './components/TouchControls';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useGameStore } from './store/useGameStore';
+import { LiveRegion } from './components/LiveRegion';
 
 function App() {
   const status = useGameStore((state) => state.status);
@@ -121,6 +122,7 @@ function App() {
       <div className="fixed inset-x-0 bottom-0 p-3 md:hidden">
         <TouchControls />
       </div>
+     <LiveRegion />
     </main>
   );
 }
