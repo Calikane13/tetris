@@ -372,6 +372,7 @@ function advance(
     active: upcoming,
     next: nextPiece,
     score: newScore,
+    best: Math.max(state.best, newScore),
     lines: totalLines,
     level: newLevel,
     status: 'playing',
