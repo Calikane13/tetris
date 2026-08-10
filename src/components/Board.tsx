@@ -15,7 +15,12 @@ import { Cell } from './Cell';
 export function Board() {
   const board = useGameStore((state) => state.board);
   const active = useGameStore((state) => state.active);
+  const clearingRows = useGameStore((state) => state.clearingRows);
   const showGhost = useSettingsStore((state) => state.ghost);
+
+  // Set en vez de array: la consulta se hace 200 veces al pintar, y con un
+  // includes() sobre un array serían 200 recorridos.
+  const clearing = new Set(clearingRows);
 
   // Copia del tablero donde se pintará también la pieza activa.
   const filled: BoardType = board.map((row) => [...row]);
@@ -62,6 +67,8 @@ export function Board() {
             key={`${rowIndex}-${colIndex}`}
             filled={cellValue}
             ghost={ghost[rowIndex][colIndex]}
+            clearing={clearing.has(rowIndex)}
+            col={colIndex}
           />
         )),
       )}

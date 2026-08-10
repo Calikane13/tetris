@@ -13,6 +13,41 @@ body {
 }
 
 /*
+  Barrido de luz al completar línea (v2, requisitos V5 a V9).
+
+  Cada celda de una fila completa enciende un velo blanco y lo apaga. El retraso
+  creciente por columna, que aplica Cell.tsx en línea, es lo que convierte esos
+  encendidos sueltos en una luz que recorre la fila de izquierda a derecha.
+
+  Se anima opacity y no un desplazamiento porque el navegador la resuelve sin
+  recalcular la disposición de la página, que es lo que evita tirones en móvil.
+
+  La duración de cada celda es corta a propósito: la fase completa dura
+  LINE_CLEAR_MS, y el escalonado de las diez columnas consume buena parte de ese
+  tiempo.
+*/
+.line-sweep {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  animation: line-sweep 140ms ease-out forwards;
+}
+
+@keyframes line-sweep {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+/*
   Aviso de subida de nivel (regla R36).
 
   La animación se declara dentro de una consulta de "no-preference": quien tenga
@@ -52,6 +87,10 @@ body {
   sensibilidad al movimiento. Se anulan las transiciones y animaciones
   decorativas; la caída de las piezas no se toca, porque es el juego en sí y no
   un adorno.
+
+  El barrido de línea se convierte en un encendido plano sin escalonado: la fase
+  sigue existiendo con la misma duración, así que el juego se comporta igual
+  (requisito V3).
 */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -60,5 +99,11 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .line-sweep {
+    animation: none;
+    animation-delay: 0ms !important;
+    opacity: 0.5;
   }
 }

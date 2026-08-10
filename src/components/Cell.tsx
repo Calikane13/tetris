@@ -2,7 +2,7 @@
 // tablero), así que va envuelto en memo para que solo se repinte si cambia.
 
 import { memo } from 'react';
-import { GHOST_BORDERS, PIECE_STYLES } from '../engine/constants';
+import { GHOST_BORDERS, LINE_CLEAR_STEP_MS, PIECE_STYLES } from '../engine/constants';
 import type { PieceType } from '../engine/types';
 
 interface CellProps {
@@ -10,9 +10,13 @@ interface CellProps {
   filled: PieceType | null;
   /** Pieza cuya sombra pasa por aquí, o null. Solo se pinta si filled es null. */
   ghost: PieceType | null;
+  /** Si esta celda pertenece a una fila que se está limpiando. */
+  clearing: boolean;
+  /** Columna de la celda. Escalona el barrido para que parezca desplazarse. */
+  col: number;
 }
 
-function CellComponent({ filled, ghost }: CellProps) {
+function CellComponent({ filled, ghost, clearing, col }: CellProps) {
   if (filled) {
     const style = PIECE_STYLES[filled];
 
@@ -24,8 +28,17 @@ function CellComponent({ filled, ghost }: CellProps) {
     // sucias. Cuadrado queda limpio y además encaja con el aspecto retro.
     return (
       <div
-        className={`h-full w-full border-2 border-solid ${style.fill} ${style.light} ${style.dark}`}
-      />
+        className={`relative h-full w-full border-2 border-solid ${style.fill} ${style.light} ${style.dark}`}
+      >
+        {clearing && (
+          // El retraso creciente por columna es lo que convierte encendidos
+          // individuales en un barrido que recorre la fila (requisitos V5, V6).
+          <span
+            className="line-sweep"
+            style={{ animationDelay: `${col * LINE_CLEAR_STEP_MS}ms` }}
+          />
+        )}
+      </div>
     );
   }
 
