@@ -27,8 +27,14 @@ export interface ActivePiece {
   col: number;
 }
 
-/** Estado general de la aplicación. Determina qué pantalla se muestra. */
-export type GameStatus = 'menu' | 'playing' | 'paused' | 'gameover';
+/**
+ * Estado general de la aplicación. Determina qué pantalla se muestra.
+ *
+ * 'clearing' es una fase breve de la v2 (requisito V1): la pieza ya está fijada
+ * y las filas completas siguen visibles mientras se anima su desaparición. El
+ * juego no acepta entrada durante esa fase.
+ */
+export type GameStatus = 'menu' | 'playing' | 'clearing' | 'paused' | 'gameover';
 
 /** Estado completo de una partida. Es lo que se guarda para poder reanudar. */
 export interface GameState {

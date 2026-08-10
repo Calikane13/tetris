@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { clearLines, createEmptyBoard, isValidPosition, lockPiece } from '../engine/board';
-import { HARD_DROP_POINTS, SOFT_DROP_POINTS } from '../engine/constants';
+import { HARD_DROP_POINTS, LINE_CLEAR_MS, SOFT_DROP_POINTS } from '../engine/constants';
 import {
   getDropDistance,
   move,
@@ -32,6 +32,8 @@ interface GameStore {
   status: GameStatus;
   /** Si hay una partida guardada que se puede reanudar desde el menú. */
   hasSavedGame: boolean;
+  /** Filas que se están limpiando ahora mismo. Vacío fuera de la fase. */
+  clearingRows: number[];
 
   startGame: () => void;
   resumeSavedGame: () => void;
@@ -55,6 +57,22 @@ interface GameStore {
 let dropAccumulator = 0;
 
 /**
+ * Temporizador de la fase de limpieza.
+ *
+ * Se guarda fuera del estado para poder cancelarlo si se empieza una partida
+ * nueva a media fase. Sin esto, el temporizador de la partida anterior seguiría
+ * vivo y borraría filas del tablero recién creado (requisito V4).
+ */
+let clearTimer: number | null = null;
+
+function cancelClearTimer(): void {
+  if (clearTimer !== null) {
+    clearTimeout(clearTimer);
+    clearTimer = null;
+  }
+}
+
+/**
  * Reproduce un efecto solo si el sonido está activado en los ajustes.
  * Centralizarlo aquí evita repetir la comprobación en cada acción.
  */
@@ -74,10 +92,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   level: 1,
   status: 'menu',
   hasSavedGame: loadSavedGame() !== null,
+  clearingRows: [],
 
   startGame: () => {
     const first = randomPiece();
     dropAccumulator = 0;
+    cancelClearTimer();
     clearSavedGame();
 
     set({
@@ -89,6 +109,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       level: 1,
       status: 'playing',
       hasSavedGame: false,
+      clearingRows: [],
     });
   },
 
@@ -103,6 +124,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     dropAccumulator = 0;
+    cancelClearTimer();
 
     set({
       board: saved.board,
@@ -112,6 +134,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lines: saved.lines,
       level: saved.level,
       status: 'playing',
+      clearingRows: [],
     });
   },
 
@@ -204,6 +227,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   togglePause: () => {
     const { status } = get();
 
+    // Pausar a media limpieza dejaría la animación congelada y el temporizador
+    // corriendo por debajo. Se ignora la pulsación: son 300 ms.
     if (status === 'playing') {
       get().persist();
       set({ status: 'paused' });
@@ -213,8 +238,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   exitToMenu: () => {
+    cancelClearTimer();
     get().persist();
-    set({ status: 'menu', hasSavedGame: loadSavedGame() !== null });
+    set({ status: 'menu', hasSavedGame: loadSavedGame() !== null, clearingRows: [] });
   },
 
   /**
@@ -232,12 +258,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 }));
 
 /**
- * Secuencia completa de fijar una pieza: fijarla, limpiar líneas, puntuar,
- * recalcular el nivel, sacar la siguiente y comprobar el fin de partida.
+ * Fija la pieza y decide qué pasa después.
  *
- * Vive en una sola función porque la llaman tres sitios distintos (la gravedad,
- * la caída suave y la caída dura), y separarla es la forma de que los tres
- * hagan exactamente lo mismo.
+ * Si no hay filas completas, la partida continúa al instante como en la v1.
+ * Si las hay, se entra en la fase de limpieza: las filas se quedan visibles,
+ * el juego se detiene, y finishClearing() remata el trabajo cuando termina la
+ * animación (requisitos V1, V2, V7).
  */
 function lockAndAdvance(
   set: (partial: Partial<GameStore>) => void,
@@ -247,7 +273,65 @@ function lockAndAdvance(
   if (!state.active) return;
 
   const locked = lockPiece(state.board, state.active);
-  const { board: cleared, cleared: clearedCount } = clearLines(locked);
+
+  // Se buscan las filas completas sin borrarlas todavía: hay que poder pintarlas
+  // durante la animación.
+  const fullRows: number[] = [];
+  locked.forEach((row, index) => {
+    if (row.every((cell) => cell !== null)) fullRows.push(index);
+  });
+
+  if (fullRows.length === 0) {
+    play(sfx.lock);
+    advance(set, get, locked, 0);
+    return;
+  }
+
+  play(() => sfx.clear(fullRows.length));
+
+  // La pieza ya está fijada y visible, pero las filas todavía no se borran.
+  set({
+    board: locked,
+    active: null,
+    status: 'clearing',
+    clearingRows: fullRows,
+  });
+
+  cancelClearTimer();
+  clearTimer = window.setTimeout(() => {
+    clearTimer = null;
+    finishClearing(set, get);
+  }, LINE_CLEAR_MS);
+}
+
+/** Borra las filas marcadas y continúa la partida. */
+function finishClearing(
+  set: (partial: Partial<GameStore>) => void,
+  get: () => GameStore,
+): void {
+  const state = get();
+
+  // Si la partida cambió mientras corría el temporizador, no se toca nada.
+  if (state.status !== 'clearing') return;
+
+  const { board: cleared, cleared: clearedCount } = clearLines(state.board);
+  advance(set, get, cleared, clearedCount);
+}
+
+/**
+ * Puntúa, saca la siguiente pieza, guarda y comprueba el fin de partida.
+ *
+ * Vive aparte porque la llaman los dos caminos: el de "no hubo líneas", que va
+ * directo, y el de "hubo líneas", que llega tras la animación. Separarla es la
+ * forma de que los dos hagan exactamente lo mismo.
+ */
+function advance(
+  set: (partial: Partial<GameStore>) => void,
+  get: () => GameStore,
+  board: Board,
+  clearedCount: number,
+): void {
+  const state = get();
 
   const totalLines = state.lines + clearedCount;
   const newLevel = levelForLines(totalLines);
@@ -256,14 +340,6 @@ function lockAndAdvance(
   const upcoming = spawnPiece(state.next);
   dropAccumulator = 0;
 
-  // El sonido de limpiar líneas sustituye al de fijar: si sonaran los dos a la
-  // vez se solaparían y se oiría un ruido sucio.
-  if (clearedCount > 0) {
-    play(() => sfx.clear(clearedCount));
-  } else {
-    play(sfx.lock);
-  }
-
   if (newLevel > state.level) {
     play(sfx.levelUp);
   }
@@ -271,12 +347,12 @@ function lockAndAdvance(
   // Si la pieza nueva no cabe nada más aparecer, la partida termina (regla R38).
   // Es el único momento en que se guarda el récord: hacerlo en cada punto
   // escribiría en localStorage cientos de veces por partida sin ninguna ganancia.
-  if (!isValidPosition(cleared, upcoming)) {
+  if (!isValidPosition(board, upcoming)) {
     clearSavedGame();
     play(sfx.gameOver);
 
     set({
-      board: cleared,
+      board,
       active: null,
       score: newScore,
       best: saveBestScore(newScore),
@@ -284,6 +360,7 @@ function lockAndAdvance(
       level: newLevel,
       status: 'gameover',
       hasSavedGame: false,
+      clearingRows: [],
     });
     return;
   }
@@ -291,18 +368,20 @@ function lockAndAdvance(
   const nextPiece = randomPiece(state.next);
 
   set({
-    board: cleared,
+    board,
     active: upcoming,
     next: nextPiece,
     score: newScore,
     lines: totalLines,
     level: newLevel,
+    status: 'playing',
+    clearingRows: [],
   });
 
   // Se guarda al fijar cada pieza: es el punto natural de la partida, y así
   // como mucho se pierde una pieza si el navegador se cierra de golpe.
   saveGame({
-    board: cleared,
+    board,
     active: upcoming,
     next: nextPiece,
     score: newScore,
