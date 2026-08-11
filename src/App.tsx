@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Board } from './components/Board';
+import { GameOverPanel } from './components/GameOverPanel';
 import { Hud } from './components/Hud';
 import { LevelUpBanner } from './components/LevelUpBanner';
 import { LiveRegion } from './components/LiveRegion';
@@ -13,8 +14,6 @@ import { useGameStore } from './store/useGameStore';
 
 function App() {
   const status = useGameStore((state) => state.status);
-  const score = useGameStore((state) => state.score);
-  const lines = useGameStore((state) => state.lines);
   const hasSavedGame = useGameStore((state) => state.hasSavedGame);
   const startGame = useGameStore((state) => state.startGame);
   const resumeSavedGame = useGameStore((state) => state.resumeSavedGame);
@@ -50,7 +49,13 @@ function App() {
 
           {/* relative para que las capas se posicionen sobre el tablero */}
           <div className="relative">
-            <Board />
+            {/* El apagado se aplica a un envoltorio del tablero, no a la capa
+                de encima: si no, el texto del resultado también se volvería
+                gris y perdería legibilidad (requisito V22). */}
+            <div className={status === 'gameover' ? 'board-dead' : undefined}>
+              <Board />
+            </div>
+
             <LevelUpBanner />
 
             {showSettings && (
@@ -115,10 +120,7 @@ function App() {
 
             {!showSettings && status === 'gameover' && (
               <Overlay title="Fin de partida">
-                <p className="text-slate-300">
-                  {score} puntos · {lines} líneas
-                </p>
-                <OverlayButton onClick={startGame}>Jugar otra vez</OverlayButton>
+                <GameOverPanel onRestart={startGame} />
               </Overlay>
             )}
           </div>

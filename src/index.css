@@ -21,10 +21,6 @@ body {
 
   Se anima opacity y no un desplazamiento porque el navegador la resuelve sin
   recalcular la disposición de la página, que es lo que evita tirones en móvil.
-
-  La duración de cada celda es corta a propósito: la fase completa dura
-  LINE_CLEAR_MS, y el escalonado de las diez columnas consume buena parte de ese
-  tiempo.
 */
 .line-sweep {
   position: absolute;
@@ -48,12 +44,34 @@ body {
 }
 
 /*
+  Apagado del tablero al perder (v2, requisitos V22 y V26).
+
+  Un filtro sobre el contenedor entero, no sobre cada celda: es una sola
+  propiedad en un solo elemento, así que el navegador lo resuelve en la GPU sin
+  tocar los 200 divs de dentro.
+
+  forwards mantiene el estado final cuando la animación acaba; sin eso, el
+  tablero volvería de golpe a sus colores.
+*/
+.board-dead {
+  animation: board-fade 750ms ease-out forwards;
+}
+
+@keyframes board-fade {
+  from {
+    filter: grayscale(0) brightness(1);
+  }
+  to {
+    filter: grayscale(1) brightness(0.4);
+  }
+}
+
+/*
   Aviso de subida de nivel (regla R36).
 
   La animación se declara dentro de una consulta de "no-preference": quien tenga
   activada la reducción de movimiento verá el aviso aparecer y desaparecer sin
-  desplazamiento ni escala, que es justo lo que pide el criterio NF6. No hace
-  falta anularla después, porque nunca llega a aplicarse.
+  desplazamiento ni escala, que es justo lo que pide el criterio NF6.
 */
 @media (prefers-reduced-motion: no-preference) {
   .level-up-banner {
@@ -88,9 +106,8 @@ body {
   decorativas; la caída de las piezas no se toca, porque es el juego en sí y no
   un adorno.
 
-  El barrido de línea se convierte en un encendido plano sin escalonado: la fase
-  sigue existiendo con la misma duración, así que el juego se comporta igual
-  (requisito V3).
+  El barrido de línea y el apagado del tablero se convierten en estados fijos:
+  el resultado visual final es el mismo, pero sin transición (requisito V3).
 */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -105,5 +122,10 @@ body {
     animation: none;
     animation-delay: 0ms !important;
     opacity: 0.5;
+  }
+
+  .board-dead {
+    animation: none;
+    filter: grayscale(1) brightness(0.4);
   }
 }
