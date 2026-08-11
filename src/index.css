@@ -67,25 +67,45 @@ body {
 }
 
 /*
-  Aviso de subida de nivel (regla R36).
+  Aviso de subida de nivel (regla R36, requisitos V27 a V29).
 
-  La animación se declara dentro de una consulta de "no-preference": quien tenga
-  activada la reducción de movimiento verá el aviso aparecer y desaparecer sin
-  desplazamiento ni escala, que es justo lo que pide el criterio NF6.
+  Dos capas: un destello que cubre el tablero un instante, y el cartel con el
+  número. El destello es lo que hace que se note aunque estés mirando la pieza
+  y no el centro de la pantalla.
+
+  Todo dentro de la consulta "no-preference": quien tenga activada la reducción
+  de movimiento ve el cartel aparecer y desaparecer sin desplazamiento, escala
+  ni destello. No hace falta anularlo después, porque nunca llega a aplicarse.
 */
 @media (prefers-reduced-motion: no-preference) {
   .level-up-banner {
-    animation: level-up 1.2s ease-out;
+    animation: level-up 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .level-up-banner::before {
+    content: '';
+    position: absolute;
+    inset: -100vh 0;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(34, 211, 238, 0.35),
+      transparent 65%
+    );
+    pointer-events: none;
+    animation: level-flash 700ms ease-out forwards;
   }
 }
 
 @keyframes level-up {
   0% {
     opacity: 0;
-    transform: translateY(0.75rem) scale(0.9);
+    transform: translateY(1.5rem) scale(0.6);
   }
-  15% {
+  20% {
     opacity: 1;
+    transform: translateY(0) scale(1.25);
+  }
+  35% {
     transform: translateY(0) scale(1);
   }
   75% {
@@ -94,7 +114,19 @@ body {
   }
   100% {
     opacity: 0;
-    transform: translateY(-0.5rem) scale(0.98);
+    transform: translateY(-1rem) scale(0.95);
+  }
+}
+
+@keyframes level-flash {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
   }
 }
 
