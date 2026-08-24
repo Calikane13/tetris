@@ -6,7 +6,12 @@
 
 import { create } from 'zustand';
 import { clearLines, createEmptyBoard, isValidPosition, lockPiece } from '../engine/board';
-import { HARD_DROP_POINTS, LINE_CLEAR_MS, SOFT_DROP_POINTS } from '../engine/constants';
+import {
+  COMBO_GRACE,
+  HARD_DROP_POINTS,
+  LINE_CLEAR_MS,
+  SOFT_DROP_POINTS,
+} from '../engine/constants';
 import {
   getDropDistance,
   move,
@@ -14,7 +19,12 @@ import {
   rotate,
   spawnPiece,
 } from '../engine/piece';
-import { dropIntervalForLevel, levelForLines, scoreForLines } from '../engine/scoring';
+import {
+  comboBonus,
+  dropIntervalForLevel,
+  levelForLines,
+  scoreForLines,
+} from '../engine/scoring';
 import type { ActivePiece, Board, GameStatus, PieceType } from '../engine/types';
 import { sfx } from '../audio/sfx';
 import { loadBestScore, saveBestScore } from '../storage/bestScore';
@@ -34,6 +44,12 @@ interface GameStore {
   hasSavedGame: boolean;
   /** Filas que se están limpiando ahora mismo. Vacío fuera de la fase. */
   clearingRows: number[];
+  /** Racha actual de eliminaciones consecutivas. 0 significa sin racha. */
+  combo: number;
+  /** Piezas seguidas fijadas sin eliminar líneas. Implementa el margen de C3. */
+  dryPieces: number;
+  /** Extra ganado en la última eliminación. Lo lee el cartel de combo. */
+  lastComboBonus: number;
 
   startGame: () => void;
   resumeSavedGame: () => void;
@@ -93,6 +109,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   status: 'menu',
   hasSavedGame: loadSavedGame() !== null,
   clearingRows: [],
+  combo: 0,
+  dryPieces: 0,
+  lastComboBonus: 0,
 
   startGame: () => {
     const first = randomPiece();
@@ -110,6 +129,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       status: 'playing',
       hasSavedGame: false,
       clearingRows: [],
+      combo: 0,
+      dryPieces: 0,
+      lastComboBonus: 0,
     });
   },
 
@@ -135,6 +157,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       level: saved.level,
       status: 'playing',
       clearingRows: [],
+      // La racha no se guarda: al reanudar se retoma desde cero (requisito C6).
+      combo: 0,
+      dryPieces: 0,
+      lastComboBonus: 0,
     });
   },
 
@@ -319,7 +345,8 @@ function finishClearing(
 }
 
 /**
- * Puntúa, saca la siguiente pieza, guarda y comprueba el fin de partida.
+ * Puntúa, actualiza la racha, saca la siguiente pieza, guarda y comprueba el
+ * fin de partida.
  *
  * Vive aparte porque la llaman los dos caminos: el de "no hubo líneas", que va
  * directo, y el de "hubo líneas", que llega tras la animación. Separarla es la
@@ -333,9 +360,31 @@ function advance(
 ): void {
   const state = get();
 
+  // Racha (v3, requisitos C1 a C4).
+  //
+  // Cuando se eliminan líneas, la racha sube sin importar cuántas sean: lo que
+  // se premia es la continuidad. Cuando no, se cuenta la pieza seca; solo al
+  // llegar a COMBO_GRACE se corta.
+  let combo = state.combo;
+  let dryPieces = state.dryPieces;
+  let bonus = 0;
+
+  if (clearedCount > 0) {
+    combo += 1;
+    dryPieces = 0;
+    bonus = comboBonus(combo, state.level);
+  } else {
+    dryPieces += 1;
+    if (dryPieces >= COMBO_GRACE) {
+      combo = 0;
+      dryPieces = 0;
+    }
+  }
+
   const totalLines = state.lines + clearedCount;
   const newLevel = levelForLines(totalLines);
-  const newScore = state.score + scoreForLines(clearedCount, state.level);
+  const newScore =
+    state.score + scoreForLines(clearedCount, state.level) + bonus;
 
   const upcoming = spawnPiece(state.next);
   dropAccumulator = 0;
@@ -361,6 +410,9 @@ function advance(
       status: 'gameover',
       hasSavedGame: false,
       clearingRows: [],
+      combo: 0,
+      dryPieces: 0,
+      lastComboBonus: 0,
     });
     return;
   }
@@ -377,6 +429,9 @@ function advance(
     level: newLevel,
     status: 'playing',
     clearingRows: [],
+    combo,
+    dryPieces,
+    lastComboBonus: bonus,
   });
 
   // Se guarda al fijar cada pieza: es el punto natural de la partida, y así

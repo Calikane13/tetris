@@ -39,6 +39,21 @@ export const HARD_DROP_POINTS = 2;
 /* Líneas necesarias para subir de nivel (regla R35). */
 export const LINES_PER_LEVEL = 10;
 
+/* Combos (v3, requisitos C3, C7 y C8).
+
+   COMBO_BASE es el extra por punto de racha: el bono es COMBO_BASE * racha * nivel.
+
+   COMBO_GRACE es cuántas piezas seguidas sin eliminar línea rompen la racha. Con
+   3, las dos primeras la mantienen viva y la tercera la corta. Es más generoso
+   que lo habitual en el género, y a propósito: hace la racha alcanzable para
+   quien no juega a diario. Si al probarlo resulta demasiado fácil, este es el
+   número que hay que bajar. */
+export const COMBO_BASE = 50;
+export const COMBO_GRACE = 3;
+
+/* Cuánto tiempo se ve el cartel de combo, en milisegundos. */
+export const COMBO_BANNER_MS = 900;
+
 /* Desplazamientos que se prueban al rotar, en orden, si la rotación no cabe
    (regla R18). El 0 es el intento en el sitio, sin mover. */
 export const ROTATION_OFFSETS = [0, 1, -1, 2, -2];
@@ -93,7 +108,6 @@ export const GHOST_BORDERS: Record<PieceType, string> = {
    programar el temporizador, y el CSS, para la animación.
 
    LINE_CLEAR_STEP_MS es el retraso entre una columna y la siguiente, que es lo
-   que hace que la luz parezca desplazarse en lugar de encenderse toda a la vez.
-   Con 10 columnas, la última empieza 180 ms después que la primera. */
+   que hace que la luz parezca desplazarse en lugar de encenderse toda a la vez. */
 export const LINE_CLEAR_MS = 300;
 export const LINE_CLEAR_STEP_MS = 20;
