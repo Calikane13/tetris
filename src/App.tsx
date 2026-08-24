@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Board } from './components/Board';
+import { ComboBanner } from './components/ComboBanner';
+import { CrownIcon } from './components/CrownIcon';
 import { GameOverPanel } from './components/GameOverPanel';
 import { Hud } from './components/Hud';
 import { LevelUpBanner } from './components/LevelUpBanner';
 import { LiveRegion } from './components/LiveRegion';
+import { Logo } from './components/Logo';
 import { Overlay, OverlayButton } from './components/Overlay';
 import { ScoreBar } from './components/ScoreBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { TouchControls } from './components/TouchControls';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useKeyboard } from './hooks/useKeyboard';
-import { ComboBanner } from './components/ComboBanner';
 import { useGameStore } from './store/useGameStore';
 
 function App() {
   const status = useGameStore((state) => state.status);
+  const best = useGameStore((state) => state.best);
   const hasSavedGame = useGameStore((state) => state.hasSavedGame);
   const startGame = useGameStore((state) => state.startGame);
   const resumeSavedGame = useGameStore((state) => state.resumeSavedGame);
@@ -42,8 +45,7 @@ function App() {
   }, []);
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-slate-950 p-4">
-      <div className="flex flex-col items-center gap-6 md:flex-row md:items-start md:gap-10">
+    <main className="flex min-h-dvh items-center justify-center bg-slate-950 p-4 pb-32 md:pb-4">      <div className="flex flex-col items-center gap-6 md:flex-row md:items-start md:gap-10">
         {/* La barra de puntuación va sobre el tablero y comparte su ancho. */}
         <div className="flex flex-col gap-2">
           <ScoreBar />
@@ -57,7 +59,7 @@ function App() {
               <Board />
             </div>
 
-                        <LevelUpBanner />
+            <LevelUpBanner />
             <ComboBanner />
 
             {showSettings && (
@@ -67,26 +69,42 @@ function App() {
             )}
 
             {!showSettings && status === 'menu' && (
-              <Overlay title="Bloques">
-                <p className="max-w-xs text-sm text-slate-400">
-                  Flechas para mover y rotar. Espacio para caída rápida. P para pausar.
+              <Overlay title="Bloque a Bloque">
+                {/* El logo es más pequeño en móvil para que el menú entero
+                    quepa sin desplazamiento a 320x568 (requisito C30). */}
+                <Logo size={56} className="md:hidden" />
+                <Logo size={88} className="hidden md:block" />
+
+                
+
+                {/* El récord se ve antes de empezar (requisito C27). */}
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <CrownIcon className="h-4 w-4" />
+                  <span className="font-mono text-lg tabular-nums">{best}</span>
+                </div>
+
+                {/* Las teclas no sirven de nada en móvil (requisito C29). */}
+                <p className="hidden max-w-xs text-sm text-slate-400 md:block">
+                  Flechas para mover y rotar. Espacio para caída rápida. P para
+                  pausar.
                 </p>
 
-                {hasSavedGame && (
-                  <OverlayButton onClick={resumeSavedGame}>Continuar partida</OverlayButton>
+                {hasSavedGame ? (
+                  <>
+                    <OverlayButton onClick={resumeSavedGame}>
+                      Continuar partida
+                    </OverlayButton>
+                    <button
+                      type="button"
+                      onClick={startGame}
+                      className="text-sm text-slate-400 underline hover:text-slate-200"
+                    >
+                      Empezar de cero
+                    </button>
+                  </>
+                ) : (
+                  <OverlayButton onClick={startGame}>Jugar</OverlayButton>
                 )}
-
-                <button
-                  type="button"
-                  onClick={startGame}
-                  className={
-                    hasSavedGame
-                      ? 'text-sm text-slate-400 underline hover:text-slate-200'
-                      : 'rounded-lg bg-slate-100 px-6 py-3 font-semibold text-slate-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400'
-                  }
-                >
-                  {hasSavedGame ? 'Empezar de cero' : 'Jugar'}
-                </button>
 
                 <button
                   type="button"
