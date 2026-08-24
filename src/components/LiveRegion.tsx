@@ -3,9 +3,6 @@
 // El tablero es una rejilla de 200 divs: recorrerlo con un lector de pantalla
 // sería inútil y agotador, así que se marca como decorativo y toda la
 // información relevante se da por aquí, en texto.
-//
-// aria-live="polite" hace que el lector espere a terminar lo que esté diciendo
-// antes de anunciar el cambio, en lugar de interrumpir al usuario.
 
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
@@ -15,6 +12,7 @@ export function LiveRegion() {
   const level = useGameStore((state) => state.level);
   const lines = useGameStore((state) => state.lines);
   const score = useGameStore((state) => state.score);
+  const combo = useGameStore((state) => state.combo);
 
   const [message, setMessage] = useState('');
 
@@ -35,15 +33,17 @@ export function LiveRegion() {
       setMessage(`Nivel ${level}`);
     } else if (lines > before.lines) {
       const cleared = lines - before.lines;
-      setMessage(
-        cleared === 1
-          ? `Una línea. ${score} puntos.`
-          : `${cleared} líneas. ${score} puntos.`,
-      );
+      const base = cleared === 1 ? 'Una línea' : `${cleared} líneas`;
+
+      // La racha se menciona solo cuando existe, para no repetir "combo 0"
+      // en cada línea suelta (requisito C17).
+      const comboPart = combo >= 2 ? ` Combo ${combo}.` : '';
+
+      setMessage(`${base}.${comboPart} ${score} puntos.`);
     }
 
     previous.current = { level, lines, status };
-  }, [status, level, lines, score]);
+  }, [status, level, lines, score, combo]);
 
   return (
     <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
