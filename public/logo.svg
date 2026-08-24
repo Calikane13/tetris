@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!--
+    Icono de la pestaña. Mismo dibujo que src/components/Logo.tsx.
+
+    Está duplicado a propósito: el navegador carga este archivo antes de que
+    exista React, así que no puede ser un componente. Si se cambia el logo, hay
+    que cambiar los dos.
+  -->
+  <defs>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9d5ff"/>
+      <stop offset="1" stop-color="#9333ea"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Pieza T cayendo -->
+  <rect x="21" y="0" width="11" height="11" rx="2.5" fill="url(#t)"/>
+  <ellipse cx="24.5" cy="3" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.5"/>
+  <rect x="33" y="0" width="11" height="11" rx="2.5" fill="url(#t)"/>
+  <ellipse cx="36.5" cy="3" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.5"/>
+  <rect x="45" y="0" width="11" height="11" rx="2.5" fill="url(#t)"/>
+  <ellipse cx="48.5" cy="3" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.5"/>
+  <rect x="33" y="12" width="11" height="11" rx="2.5" fill="url(#t)"/>
+  <ellipse cx="36.5" cy="15" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.5"/>
+
+  <!-- Cuadrado construido -->
+  <rect x="7" y="41" width="11" height="11" rx="2.5" fill="#22d3ee"/>
+  <ellipse cx="10.5" cy="44" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+  <rect x="19" y="41" width="11" height="11" rx="2.5" fill="#4ade80"/>
+  <ellipse cx="22.5" cy="44" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+  <rect x="31" y="41" width="11" height="11" rx="2.5" fill="#fbbf24"/>
+  <ellipse cx="34.5" cy="44" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+  <rect x="43" y="41" width="11" height="11" rx="2.5" fill="#fb923c"/>
+  <ellipse cx="46.5" cy="44" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+
+  <rect x="7" y="53" width="11" height="11" rx="2.5" fill="#f87171"/>
+  <ellipse cx="10.5" cy="56" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+  <rect x="19" y="53" width="11" height="11" rx="2.5" fill="#60a5fa"/>
+  <ellipse cx="22.5" cy="56" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+  <rect x="31" y="53" width="11" height="11" rx="2.5" fill="#a3e635"/>
+  <ellipse cx="34.5" cy="56" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+  <rect x="43" y="53" width="11" height="11" rx="2.5" fill="#c084fc"/>
+  <ellipse cx="46.5" cy="56" rx="2.4" ry="1.4" fill="#ffffff" opacity="0.45"/>
+</svg>
