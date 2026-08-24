@@ -16,11 +16,17 @@ export function Board() {
   const board = useGameStore((state) => state.board);
   const active = useGameStore((state) => state.active);
   const clearingRows = useGameStore((state) => state.clearingRows);
+  const combo = useGameStore((state) => state.combo);
   const showGhost = useSettingsStore((state) => state.ghost);
 
   // Set en vez de array: la consulta se hace 200 veces al pintar, y con un
   // includes() sobre un array serían 200 recorridos.
   const clearing = new Set(clearingRows);
+
+  // La racha se incrementa al terminar la fase de limpieza, así que durante la
+  // animación el valor que hay en el store es todavía el anterior. Un combo
+  // visible empieza cuando ya había racha antes de esta eliminación.
+  const isComboSweep = combo >= 1;
 
   // Copia del tablero donde se pintará también la pieza activa.
   const filled: BoardType = board.map((row) => [...row]);
@@ -68,6 +74,7 @@ export function Board() {
             filled={cellValue}
             ghost={ghost[rowIndex][colIndex]}
             clearing={clearing.has(rowIndex)}
+            combo={isComboSweep}
             col={colIndex}
           />
         )),

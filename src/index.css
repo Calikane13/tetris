@@ -15,20 +15,36 @@ body {
 /*
   Barrido de luz al completar línea (v2, requisitos V5 a V9).
 
-  Cada celda de una fila completa enciende un velo blanco y lo apaga. El retraso
+  Cada celda de una fila completa enciende un velo y lo apaga. El retraso
   creciente por columna, que aplica Cell.tsx en línea, es lo que convierte esos
   encendidos sueltos en una luz que recorre la fila de izquierda a derecha.
 
   Se anima opacity y no un desplazamiento porque el navegador la resuelve sin
   recalcular la disposición de la página, que es lo que evita tirones en móvil.
 */
-.line-sweep {
+.line-sweep,
+.line-sweep-combo {
   position: absolute;
   inset: 0;
-  background: #ffffff;
   opacity: 0;
   pointer-events: none;
   animation: line-sweep 140ms ease-out forwards;
+}
+
+.line-sweep {
+  background: #ffffff;
+}
+
+/*
+  Barrido en racha (v3, requisito C13).
+
+  Amarillo en lugar de blanco. Lleva además un borde blanco fino porque la
+  pieza O es amarilla: sobre una fila llena de piezas O, el amarillo solo no se
+  distinguiría del bloque, y el borde sí contrasta con cualquier color.
+*/
+.line-sweep-combo {
+  background: #fde047;
+  box-shadow: inset 0 0 0 2px #ffffff;
 }
 
 @keyframes line-sweep {
@@ -49,9 +65,6 @@ body {
   Un filtro sobre el contenedor entero, no sobre cada celda: es una sola
   propiedad en un solo elemento, así que el navegador lo resuelve en la GPU sin
   tocar los 200 divs de dentro.
-
-  forwards mantiene el estado final cuando la animación acaba; sin eso, el
-  tablero volvería de golpe a sus colores.
 */
 .board-dead {
   animation: board-fade 750ms ease-out forwards;
@@ -67,32 +80,50 @@ body {
 }
 
 /*
-  Aviso de subida de nivel (regla R36, requisitos V27 a V29).
+  Avisos de nivel y de combo (reglas R36, requisitos V27-V29 y C11-C16).
 
-  Dos capas: un destello que cubre el tablero un instante, y el cartel con el
-  número. El destello es lo que hace que se note aunque estés mirando la pieza
-  y no el centro de la pantalla.
+  Mismo patrón para los dos: un destello de color que cubre el tablero, y el
+  cartel entrando con un rebote de escala. Cambia el color: cian para el nivel,
+  amarillo para el combo.
 
   Todo dentro de la consulta "no-preference": quien tenga activada la reducción
-  de movimiento ve el cartel aparecer y desaparecer sin desplazamiento, escala
-  ni destello. No hace falta anularlo después, porque nunca llega a aplicarse.
+  de movimiento ve los carteles aparecer y desaparecer sin desplazamiento,
+  escala ni destello. No hace falta anularlo después, porque nunca llega a
+  aplicarse.
 */
 @media (prefers-reduced-motion: no-preference) {
-  .level-up-banner {
+  .level-up-banner,
+  .combo-banner {
     animation: level-up 1.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .level-up-banner::before {
+  .combo-banner {
+    animation-duration: 900ms;
+  }
+
+  .level-up-banner::before,
+  .combo-banner::before {
     content: '';
     position: absolute;
     inset: -100vh 0;
+    pointer-events: none;
+    animation: level-flash 700ms ease-out forwards;
+  }
+
+  .level-up-banner::before {
     background: radial-gradient(
       ellipse at center,
       rgba(34, 211, 238, 0.35),
       transparent 65%
     );
-    pointer-events: none;
-    animation: level-flash 700ms ease-out forwards;
+  }
+
+  .combo-banner::before {
+    background: radial-gradient(
+      ellipse at center,
+      rgba(253, 224, 71, 0.35),
+      transparent 65%
+    );
   }
 }
 
@@ -138,8 +169,8 @@ body {
   decorativas; la caída de las piezas no se toca, porque es el juego en sí y no
   un adorno.
 
-  El barrido de línea y el apagado del tablero se convierten en estados fijos:
-  el resultado visual final es el mismo, pero sin transición (requisito V3).
+  Los barridos y el apagado se convierten en estados fijos: el resultado visual
+  final es el mismo, pero sin transición (requisitos V3 y C16).
 */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -150,7 +181,8 @@ body {
     transition-duration: 0.01ms !important;
   }
 
-  .line-sweep {
+  .line-sweep,
+  .line-sweep-combo {
     animation: none;
     animation-delay: 0ms !important;
     opacity: 0.5;

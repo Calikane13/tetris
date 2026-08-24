@@ -10,6 +10,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { TouchControls } from './components/TouchControls';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useKeyboard } from './hooks/useKeyboard';
+import { ComboBanner } from './components/ComboBanner';
 import { useGameStore } from './store/useGameStore';
 
 function App() {
@@ -56,7 +57,8 @@ function App() {
               <Board />
             </div>
 
-            <LevelUpBanner />
+                        <LevelUpBanner />
+            <ComboBanner />
 
             {showSettings && (
               <Overlay title="Ajustes">

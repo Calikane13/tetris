@@ -12,11 +12,13 @@ interface CellProps {
   ghost: PieceType | null;
   /** Si esta celda pertenece a una fila que se está limpiando. */
   clearing: boolean;
+  /** Si esa limpieza forma parte de una racha de combo. */
+  combo: boolean;
   /** Columna de la celda. Escalona el barrido para que parezca desplazarse. */
   col: number;
 }
 
-function CellComponent({ filled, ghost, clearing, col }: CellProps) {
+function CellComponent({ filled, ghost, clearing, combo, col }: CellProps) {
   if (filled) {
     const style = PIECE_STYLES[filled];
 
@@ -33,8 +35,11 @@ function CellComponent({ filled, ghost, clearing, col }: CellProps) {
         {clearing && (
           // El retraso creciente por columna es lo que convierte encendidos
           // individuales en un barrido que recorre la fila (requisitos V5, V6).
+          //
+          // En racha, el barrido es amarillo en lugar de blanco (requisito C13):
+          // permite ver de un vistazo si la línea forma parte de un combo.
           <span
-            className="line-sweep"
+            className={combo ? 'line-sweep-combo' : 'line-sweep'}
             style={{ animationDelay: `${col * LINE_CLEAR_STEP_MS}ms` }}
           />
         )}
