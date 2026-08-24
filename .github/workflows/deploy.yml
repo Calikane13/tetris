@@ -1,0 +1,65 @@
+# Despliegue automático a GitHub Pages.
+#
+# Se ejecuta en cada push a main: instala dependencias, compila el proyecto y
+# publica la carpeta dist.
+#
+# Usa el método oficial de artefactos, no la rama gh-pages: no ensucia el
+# repositorio con el código compilado.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Permite lanzarlo a mano desde la pestaña Actions, sin tener que hacer un
+  # commit vacío solo para forzar un despliegue.
+  workflow_dispatch:
+
+# Permisos que necesita el proceso para publicar en Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Si se hacen varios push seguidos, solo se despliega el último.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar
+        run: npm run build
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir el resultado
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4
