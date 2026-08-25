@@ -12,6 +12,7 @@ import {
   LINE_CLEAR_MS,
   SOFT_DROP_POINTS,
 } from '../engine/constants';
+import { MODES } from '../engine/modes';
 import {
   getDropDistance,
   move,
@@ -27,7 +28,13 @@ import {
 } from '../engine/scoring';
 import type { ActivePiece, Board, GameStatus, PieceType } from '../engine/types';
 import { sfx } from '../audio/sfx';
-import { loadBestScore, saveBestScore } from '../storage/bestScore';
+import type { ModeId, Records } from '../storage/records';
+import {
+  loadRecords,
+  recordForMode,
+  saveFixedRecord,
+  saveScoreRecord,
+} from '../storage/records';
 import { clearSavedGame, loadSavedGame, saveGame } from '../storage/savedGame';
 import { useSettingsStore } from './useSettingsStore';
 
@@ -36,7 +43,6 @@ interface GameStore {
   active: ActivePiece | null;
   next: PieceType;
   score: number;
-  best: number;
   lines: number;
   level: number;
   status: GameStatus;
@@ -51,7 +57,16 @@ interface GameStore {
   /** Extra ganado en la última eliminación. Lo lee el cartel de combo. */
   lastComboBonus: number;
 
-  startGame: () => void;
+  /** Modo de la partida en curso (v4). */
+  mode: ModeId;
+  /** Nivel en el que arrancó. Solo difiere de 1 en Nivel fijo. */
+  startLevel: number;
+  /** Milisegundos jugados. Lo usan los cronómetros de Sprint y Ultra. */
+  elapsed: number;
+  /** Marcas de todos los modos. */
+  records: Records;
+
+  startGame: (mode?: ModeId, startLevel?: number) => void;
   resumeSavedGame: () => void;
   moveLeft: () => void;
   moveRight: () => void;
@@ -103,7 +118,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   active: null,
   next: randomPiece(),
   score: 0,
-  best: loadBestScore(),
   lines: 0,
   level: 1,
   status: 'menu',
@@ -113,11 +127,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   dryPieces: 0,
   lastComboBonus: 0,
 
-  startGame: () => {
+  mode: 'classic',
+  startLevel: 1,
+  elapsed: 0,
+  records: loadRecords(),
+
+  startGame: (mode = 'classic', startLevel = 1) => {
     const first = randomPiece();
     dropAccumulator = 0;
     cancelClearTimer();
     clearSavedGame();
+
+    // En Nivel fijo el jugador elige; en los demás lo dice la tabla de modos.
+    const config = MODES[mode];
+    const level = config.startLevel === 'choose' ? startLevel : config.startLevel;
 
     set({
       board: createEmptyBoard(),
@@ -125,13 +148,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       next: randomPiece(first),
       score: 0,
       lines: 0,
-      level: 1,
+      level,
       status: 'playing',
       hasSavedGame: false,
       clearingRows: [],
       combo: 0,
       dryPieces: 0,
       lastComboBonus: 0,
+      mode,
+      startLevel: level,
+      elapsed: 0,
     });
   },
 
@@ -161,6 +187,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       combo: 0,
       dryPieces: 0,
       lastComboBonus: 0,
+      mode: saved.mode ?? 'classic',
+      startLevel: saved.startLevel ?? 1,
+      elapsed: saved.elapsed ?? 0,
     });
   },
 
@@ -274,12 +303,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
    * menú y el evento de ocultar la pestaña.
    */
   persist: () => {
-    const { board, active, next, score, lines, level, status } = get();
+    const { board, active, next, score, lines, level, status, mode, startLevel, elapsed } =
+      get();
 
     // Solo tiene sentido guardar una partida viva.
     if (status !== 'playing' || !active) return;
 
-    saveGame({ board, active, next, score, lines, level });
+    saveGame({ board, active, next, score, lines, level, mode, startLevel, elapsed });
   },
 }));
 
@@ -345,6 +375,27 @@ function finishClearing(
 }
 
 /**
+ * Guarda la marca que corresponda al modo y devuelve las marcas actualizadas.
+ *
+ * Vive aparte porque cada modo puntúa distinto, y así el fin de partida no
+ * tiene que saber de esas diferencias.
+ */
+function saveRecordForMode(state: GameStore, finalScore: number): Records {
+  switch (state.mode) {
+    case 'classic':
+      return saveScoreRecord(state.records, 'classic', finalScore);
+    case 'ultra':
+      return saveScoreRecord(state.records, 'ultra', finalScore);
+    case 'fixed':
+      return saveFixedRecord(state.records, state.startLevel, finalScore);
+    default:
+      // Sprint guarda tiempo y se resuelve en su propia tarea.
+      // Cero gravedad no guarda nada (requisito M22).
+      return state.records;
+  }
+}
+
+/**
  * Puntúa, actualiza la racha, saca la siguiente pieza, guarda y comprueba el
  * fin de partida.
  *
@@ -394,8 +445,6 @@ function advance(
   }
 
   // Si la pieza nueva no cabe nada más aparecer, la partida termina (regla R38).
-  // Es el único momento en que se guarda el récord: hacerlo en cada punto
-  // escribiría en localStorage cientos de veces por partida sin ninguna ganancia.
   if (!isValidPosition(board, upcoming)) {
     clearSavedGame();
     play(sfx.gameOver);
@@ -404,7 +453,7 @@ function advance(
       board,
       active: null,
       score: newScore,
-      best: saveBestScore(newScore),
+      records: saveRecordForMode(state, newScore),
       lines: totalLines,
       level: newLevel,
       status: 'gameover',
@@ -424,7 +473,6 @@ function advance(
     active: upcoming,
     next: nextPiece,
     score: newScore,
-    best: Math.max(state.best, newScore),
     lines: totalLines,
     level: newLevel,
     status: 'playing',
@@ -443,23 +491,40 @@ function advance(
     score: newScore,
     lines: totalLines,
     level: newLevel,
+    mode: state.mode,
+    startLevel: state.startLevel,
+    elapsed: state.elapsed,
   });
 }
 
 /**
  * Acumula el tiempo transcurrido y aplica la gravedad cuando toca.
  * La llama el bucle de juego en cada fotograma.
+ *
+ * También lleva la cuenta del tiempo jugado, porque es el único sitio que se
+ * ejecuta en cada fotograma y que ya se detiene al pausar. Un temporizador
+ * aparte se desincronizaría al pausar o al volver de segundo plano.
  */
 export function addTime(delta: number): void {
-  const { status, level, tick } = useGameStore.getState();
-  if (status !== 'playing') return;
+  const state = useGameStore.getState();
+  if (state.status !== 'playing') return;
+
+  useGameStore.setState({ elapsed: state.elapsed + delta });
+
+  // En Cero gravedad la pieza no baja sola: se acaba aquí (requisito M19).
+  if (!MODES[state.mode].gravity) return;
 
   dropAccumulator += delta;
 
-  const interval = dropIntervalForLevel(level);
+  const interval = dropIntervalForLevel(state.level);
 
   while (dropAccumulator >= interval) {
     dropAccumulator -= interval;
-    tick();
+    state.tick();
   }
+}
+
+/** La marca del modo indicado, para mostrarla en el menú. */
+export function getRecordForMode(mode: ModeId, startLevel = 1): number {
+  return recordForMode(useGameStore.getState().records, mode, startLevel);
 }

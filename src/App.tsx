@@ -22,7 +22,7 @@ import { useGameStore } from './store/useGameStore';
 
 function App() {
   const status = useGameStore((state) => state.status);
-  const best = useGameStore((state) => state.best);
+  const records = useGameStore((state) => state.records);
   const hasSavedGame = useGameStore((state) => state.hasSavedGame);
   const startGame = useGameStore((state) => state.startGame);
   const resumeSavedGame = useGameStore((state) => state.resumeSavedGame);
@@ -33,6 +33,11 @@ function App() {
 
   useGameLoop();
   useKeyboard();
+
+  // startGame acepta parámetros, así que no puede pasarse directamente a un
+  // onClick: React le entregaría el evento del ratón como si fuera el modo.
+  // El selector de modo llega en M08; hasta entonces, siempre clásico.
+  const startClassic = () => startGame('classic');
 
   // Guarda la partida cuando la pestaña deja de verse. Es el único momento
   // fiable para hacerlo en móvil: al cambiar de aplicación el navegador puede
@@ -90,7 +95,9 @@ function App() {
                   {/* El récord se ve antes de empezar (requisito C27). */}
                   <div className="flex items-center gap-1.5 text-amber-400">
                     <CrownIcon className="h-4 w-4" />
-                    <span className="font-mono text-lg tabular-nums">{best}</span>
+                    <span className="font-mono text-lg tabular-nums">
+                      {records.classic}
+                    </span>
                   </div>
 
                   {/* Las teclas no sirven de nada en móvil (requisito C29). */}
@@ -106,14 +113,14 @@ function App() {
                       </OverlayButton>
                       <button
                         type="button"
-                        onClick={startGame}
+                        onClick={startClassic}
                         className="text-sm text-slate-400 underline hover:text-slate-200"
                       >
                         Empezar de cero
                       </button>
                     </>
                   ) : (
-                    <OverlayButton onClick={startGame}>Jugar</OverlayButton>
+                    <OverlayButton onClick={startClassic}>Jugar</OverlayButton>
                   )}
 
                   <button
@@ -150,7 +157,7 @@ function App() {
 
               {!showSettings && status === 'gameover' && (
                 <Overlay title="Fin de partida">
-                  <GameOverPanel onRestart={startGame} />
+                  <GameOverPanel onRestart={startClassic} />
                 </Overlay>
               )}
             </div>

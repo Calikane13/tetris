@@ -5,6 +5,8 @@
 // store: es un detalle de presentación y la partida ya ha terminado.
 
 import { useEffect, useState } from 'react';
+import { MODES } from '../engine/modes';
+import { recordForMode } from '../storage/records';
 import { useGameStore } from '../store/useGameStore';
 import { CrownIcon } from './CrownIcon';
 
@@ -13,8 +15,10 @@ const FADE_MS = 750;
 
 export function GameOverPanel({ onRestart }: { onRestart: () => void }) {
   const score = useGameStore((state) => state.score);
-  const best = useGameStore((state) => state.best);
   const lines = useGameStore((state) => state.lines);
+  const records = useGameStore((state) => state.records);
+  const mode = useGameStore((state) => state.mode);
+  const startLevel = useGameStore((state) => state.startLevel);
 
   const [ready, setReady] = useState(false);
 
@@ -23,9 +27,13 @@ export function GameOverPanel({ onRestart }: { onRestart: () => void }) {
     return () => window.clearTimeout(timer);
   }, []);
 
-  // Se compara con >= porque al perder ya se guardó el récord: si esta partida
-  // lo batió, ambos valores son iguales.
-  const isNewRecord = score >= best && score > 0;
+  const config = MODES[mode];
+  const best = recordForMode(records, mode, startLevel);
+
+  // Se compara con >= porque al perder ya se guardó la marca: si esta partida
+  // la batió, ambos valores son iguales.
+  const showRecord = config.record === 'score';
+  const isNewRecord = showRecord && score >= best && score > 0;
 
   return (
     <div className="flex flex-col items-center gap-4 text-center">
@@ -38,10 +46,12 @@ export function GameOverPanel({ onRestart }: { onRestart: () => void }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5 text-amber-400">
-        <CrownIcon className="h-4 w-4" />
-        <span className="font-mono text-xl tabular-nums">{best}</span>
-      </div>
+      {showRecord && (
+        <div className="flex items-center gap-1.5 text-amber-400">
+          <CrownIcon className="h-4 w-4" />
+          <span className="font-mono text-xl tabular-nums">{best}</span>
+        </div>
+      )}
 
       {/* El récord se dice con palabras, no solo con el color de la corona
           (criterio C2 de la constitución, requisito V24). */}

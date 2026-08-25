@@ -8,6 +8,7 @@
 import { BOARD_HEIGHT, BOARD_WIDTH } from '../engine/constants';
 import { ALL_PIECES } from '../engine/tetrominoes';
 import type { ActivePiece, Board, PieceType } from '../engine/types';
+import type { ModeId } from './records';
 import {
   hasValidVersion,
   readJson,
@@ -24,7 +25,15 @@ export interface SavedGame {
   score: number;
   lines: number;
   level: number;
+  /** Modo de la partida (v4, requisito M4). */
+  mode: ModeId;
+  /** Nivel en el que arrancó. Solo difiere de 1 en Nivel fijo. */
+  startLevel: number;
+  /** Milisegundos jugados, para no reiniciar los cronómetros al reanudar. */
+  elapsed: number;
 }
+
+const VALID_MODES: readonly string[] = ['classic', 'sprint', 'ultra', 'fixed', 'zero'];
 
 /** Comprueba que un valor es una de las siete letras de pieza. */
 function isPieceType(value: unknown): value is PieceType {
@@ -34,6 +43,11 @@ function isPieceType(value: unknown): value is PieceType {
 /** Comprueba que un valor es un número entero no negativo. */
 function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/** Comprueba que un valor es un identificador de modo conocido. */
+function isModeId(value: unknown): value is ModeId {
+  return typeof value === 'string' && VALID_MODES.includes(value);
 }
 
 /**
@@ -72,6 +86,10 @@ function isActivePiece(value: unknown): value is ActivePiece {
  * Lee la partida guardada.
  * Devuelve null si no hay ninguna, si la versión no coincide o si algún dato
  * no supera la validación.
+ *
+ * Los campos de la v4 (modo, nivel de inicio, tiempo) se rellenan con valores
+ * por defecto si faltan, en lugar de invalidar la partida entera: una partida
+ * guardada con la v3 se puede reanudar perfectamente como modo clásico.
  */
 export function loadSavedGame(): SavedGame | null {
   const data = readJson(STORAGE_KEYS.save);
@@ -98,6 +116,9 @@ export function loadSavedGame(): SavedGame | null {
     score: data.score,
     lines: data.lines,
     level: data.level,
+    mode: isModeId(data.mode) ? data.mode : 'classic',
+    startLevel: isCount(data.startLevel) && data.startLevel > 0 ? data.startLevel : 1,
+    elapsed: isCount(data.elapsed) ? data.elapsed : 0,
   };
 }
 
