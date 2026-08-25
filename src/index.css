@@ -1,9 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  /* Tamaño de celda. Se adapta al ancho y al alto de la pantalla para que el
-     tablero entero quepa sin medir nada desde JavaScript. */
-  --cell: min(8vw, 3.5vh, 30px);
+  /*
+    Tamaño de celda.
+
+    El tablero tiene 20 filas, así que su altura es 20 veces este valor. En
+    móvil no está solo en pantalla: comparte sitio con la barra de puntuación
+    arriba y el HUD debajo, y los botones ocupan los laterales.
+
+    Por eso el límite vertical es 3vh y no más: 20 filas x 3vh son 60vh, lo que
+    deja un 40% de la pantalla para todo lo demás. Con valores mayores el
+    tablero se comía la pantalla entera y el HUD quedaba fuera o tapado.
+
+    El límite horizontal, 9vw, permite que en pantallas estrechas el tablero
+    llegue al 90% del ancho, ya que los botones han pasado a los lados y no
+    compiten por el alto.
+  */
+  --cell: min(9vw, 3vh, 30px);
+}
+
+/* En escritorio sobra espacio, así que la celda puede crecer. */
+@media (min-width: 768px) {
+  :root {
+    --cell: min(4vw, 3.5vh, 30px);
+  }
 }
 
 /* Evita que un gesto sobre el tablero desplace la página en móvil. */
@@ -80,16 +100,11 @@ body {
 }
 
 /*
-  Avisos de nivel y de combo (reglas R36, requisitos V27-V29 y C11-C16).
+  Avisos de nivel y de combo (regla R36, requisitos V27-V29 y C11-C16).
 
   Mismo patrón para los dos: un destello de color que cubre el tablero, y el
   cartel entrando con un rebote de escala. Cambia el color: cian para el nivel,
   amarillo para el combo.
-
-  Todo dentro de la consulta "no-preference": quien tenga activada la reducción
-  de movimiento ve los carteles aparecer y desaparecer sin desplazamiento,
-  escala ni destello. No hace falta anularlo después, porque nunca llega a
-  aplicarse.
 */
 @media (prefers-reduced-motion: no-preference) {
   .level-up-banner,
@@ -168,9 +183,6 @@ body {
   sensibilidad al movimiento. Se anulan las transiciones y animaciones
   decorativas; la caída de las piezas no se toca, porque es el juego en sí y no
   un adorno.
-
-  Los barridos y el apagado se convierten en estados fijos: el resultado visual
-  final es el mismo, pero sin transición (requisitos V3 y C16).
 */
 @media (prefers-reduced-motion: reduce) {
   *,

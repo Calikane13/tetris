@@ -3,8 +3,11 @@
 // Se usan eventos pointer en lugar de touch porque funcionan igual con dedo,
 // ratón y lápiz, y así hay un solo camino de código.
 //
-// La repetición al mantener pulsado replica la del teclado: una pausa inicial
-// y después repeticiones rápidas.
+// Se exportan en tres grupos porque van repartidos por la pantalla en vez de
+// juntos en una barra: girar y bajar pegados al lado izquierdo del tablero,
+// caída rápida al derecho, y los de mover en la fila de abajo, uno en cada
+// extremo. Así ningún botón se solapa con el tablero ni con el HUD, y los
+// pulgares caen de forma natural sobre los de mover, que son los más usados.
 
 import { useEffect, useRef } from 'react';
 import { REPEAT_DELAY, REPEAT_INTERVAL } from '../engine/constants';
@@ -54,32 +57,55 @@ function TouchButton({ label, symbol, onPress, repeat = false }: TouchButtonProp
       onPointerUp={stop}
       onPointerLeave={stop}
       onPointerCancel={stop}
-      className="flex h-16 w-16 touch-none select-none items-center justify-center rounded-xl bg-slate-800 text-2xl text-slate-200 active:bg-slate-700"
+      className="flex h-12 w-12 shrink-0 touch-none select-none items-center justify-center rounded-xl bg-slate-800 text-xl text-slate-200 active:bg-slate-700"
     >
       {symbol}
     </button>
   );
 }
 
-export function TouchControls() {
-  const moveLeft = useGameStore((state) => state.moveLeft);
-  const moveRight = useGameStore((state) => state.moveRight);
+/** Girar y bajar, al lado izquierdo del tablero. */
+export function TouchSideLeft() {
   const softDrop = useGameStore((state) => state.softDrop);
   const rotateCW = useGameStore((state) => state.rotateCW);
+
+  return (
+    <div className="flex flex-col gap-2 md:hidden">
+      <TouchButton label="Rotar" symbol="⟳" onPress={rotateCW} />
+      <TouchButton label="Bajar" symbol="↓" onPress={softDrop} repeat />
+    </div>
+  );
+}
+
+/** Caída rápida, al lado derecho del tablero. */
+export function TouchSideRight() {
   const hardDrop = useGameStore((state) => state.hardDrop);
 
   return (
-    <div className="flex w-full items-center justify-between gap-2 md:hidden">
-      <div className="flex gap-2">
-        <TouchButton label="Mover a la izquierda" symbol="←" onPress={moveLeft} repeat />
-        <TouchButton label="Mover a la derecha" symbol="→" onPress={moveRight} repeat />
-      </div>
+    <div className="flex flex-col gap-2 md:hidden">
+      <TouchButton label="Caída rápida" symbol="⤓" onPress={hardDrop} />
+    </div>
+  );
+}
 
-      <div className="flex gap-2">
-        <TouchButton label="Bajar" symbol="↓" onPress={softDrop} repeat />
-        <TouchButton label="Rotar" symbol="⟳" onPress={rotateCW} />
-        <TouchButton label="Caída rápida" symbol="⤓" onPress={hardDrop} />
-      </div>
+/** Mover a la izquierda, en el extremo izquierdo de la fila inferior. */
+export function TouchMoveLeft() {
+  const moveLeft = useGameStore((state) => state.moveLeft);
+
+  return (
+    <div className="md:hidden">
+      <TouchButton label="Mover a la izquierda" symbol="←" onPress={moveLeft} repeat />
+    </div>
+  );
+}
+
+/** Mover a la derecha, en el extremo derecho de la fila inferior. */
+export function TouchMoveRight() {
+  const moveRight = useGameStore((state) => state.moveRight);
+
+  return (
+    <div className="md:hidden">
+      <TouchButton label="Mover a la derecha" symbol="→" onPress={moveRight} repeat />
     </div>
   );
 }
