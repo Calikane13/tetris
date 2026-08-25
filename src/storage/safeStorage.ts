@@ -9,13 +9,27 @@
 
 /** Nombres de las claves. Se agrupan aquí para no repetir literales sueltos. */
 export const STORAGE_KEYS = {
+  /** Récord único de la v1 a la v3. Se conserva solo para poder migrarlo. */
   best: 'bloques:best',
+  /** Marcas por modo, desde la v4. */
+  records: 'bloques:records',
   save: 'bloques:save',
   settings: 'bloques:settings',
+  /** Estilos de bloque desbloqueados, desde la v4. */
+  unlocks: 'bloques:unlocks',
 } as const;
 
 /** Versión del formato guardado. Si cambia, lo antiguo se descarta. */
 export const STORAGE_VERSION = 1;
+
+/**
+ * Versión del formato de récords.
+ *
+ * Va aparte de STORAGE_VERSION porque los récords cambiaron de forma en la v4
+ * y el resto de claves no. Subir la versión general obligaría a descartar
+ * ajustes y partidas que siguen siendo válidos.
+ */
+export const RECORDS_VERSION = 2;
 
 /**
  * Lee y convierte un valor guardado.
@@ -54,10 +68,10 @@ export function removeKey(key: string): void {
 }
 
 /** Comprueba que un valor guardado es un objeto con la versión esperada. */
-export function hasValidVersion(value: unknown): value is Record<string, unknown> {
+export function hasValidVersion(value: unknown, version = STORAGE_VERSION): value is Record<string, unknown> {
   return (
     typeof value === 'object' &&
     value !== null &&
-    (value as Record<string, unknown>).v === STORAGE_VERSION
+    (value as Record<string, unknown>).v === version
   );
 }
