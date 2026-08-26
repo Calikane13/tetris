@@ -11,6 +11,7 @@ import { Overlay, OverlayButton } from './components/Overlay';
 import { ScoreBar } from './components/ScoreBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { MODE_ORDER, MODES } from './engine/modes';
+import { Timer } from './components/Timer.tsx';
 import {
   TouchMoveLeft,
   TouchMoveRight,
@@ -62,7 +63,12 @@ function App() {
     <main className="flex h-dvh items-center justify-center overflow-hidden bg-slate-950 p-2 md:p-4">
       <div className="flex w-full flex-col items-center gap-3 md:w-auto md:flex-row md:items-start md:gap-10">
         <div className="flex flex-col items-stretch gap-2">
-          <ScoreBar />
+                    <div className="flex items-end justify-between gap-4">
+            <div className="flex-1">
+              <ScoreBar />
+            </div>
+            <Timer />
+          </div>
 
           {/* Fila del tablero: girar y bajar a su izquierda, caída rápida a su
               derecha. En escritorio los botones no se muestran y solo queda el

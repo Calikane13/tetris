@@ -175,7 +175,27 @@ body {
     opacity: 0;
   }
 }
+/*
+  Últimos segundos de Ultra (requisito M32).
 
+  Late para que se note sin necesidad de estar mirando el reloj. Dentro de la
+  consulta "no-preference": quien tenga reducción de movimiento lo ve en rojo,
+  fijo, que también comunica la urgencia.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  .timer-warning {
+    animation: timer-pulse 1s ease-in-out infinite;
+  }
+}
+
+@keyframes timer-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
 /*
   Respeto a prefers-reduced-motion (criterio C2 de la constitución).
 
