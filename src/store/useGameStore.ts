@@ -433,7 +433,10 @@ function advance(
   }
 
   const totalLines = state.lines + clearedCount;
-  const newLevel = levelForLines(totalLines);
+    // El nivel calculado por líneas nunca puede bajar del nivel de inicio: en
+  // Nivel fijo se empieza en el 10 con cero líneas, y levelForLines devolvería
+  // 1, tirando la velocidad elegida al fijar la primera pieza.
+  const newLevel = Math.max(state.startLevel, levelForLines(totalLines));
   const newScore =
     state.score + scoreForLines(clearedCount, state.level) + bonus;
 

@@ -10,6 +10,7 @@ import { Logo } from './components/Logo';
 import { Overlay, OverlayButton } from './components/Overlay';
 import { ScoreBar } from './components/ScoreBar';
 import { SettingsPanel } from './components/SettingsPanel';
+import { MODE_ORDER, MODES } from './engine/modes';
 import {
   TouchMoveLeft,
   TouchMoveRight,
@@ -105,6 +106,20 @@ function App() {
                     Flechas para mover y rotar. Espacio para caída rápida. P para
                     pausar.
                   </p>
+                    {/* TEMPORAL — M04. Selector de pruebas hasta que llegue el
+                      selector real en M08. */}
+                  <div className="flex flex-wrap justify-center gap-1">
+                    {MODE_ORDER.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => startGame(id, id === 'fixed' ? 10 : 1)}
+                        className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700"
+                      >
+                        {MODES[id].name}
+                      </button>
+                    ))}
+                  </div>
 
                   {hasSavedGame ? (
                     <>
