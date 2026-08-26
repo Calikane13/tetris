@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Board } from './components/Board';
 import { ComboBanner } from './components/ComboBanner';
-import { CrownIcon } from './components/CrownIcon';
 import { GameOverPanel } from './components/GameOverPanel';
 import { Hud } from './components/Hud';
 import { LevelUpBanner } from './components/LevelUpBanner';
 import { LiveRegion } from './components/LiveRegion';
 import { Logo } from './components/Logo';
+import { ModePicker } from './components/ModePicker';
 import { Overlay, OverlayButton } from './components/Overlay';
 import { ScoreBar } from './components/ScoreBar';
 import { SettingsPanel } from './components/SettingsPanel';
-import { MODE_ORDER, MODES } from './engine/modes';
-import { Timer } from './components/Timer.tsx';
+import { Timer } from './components/Timer';
 import {
   TouchMoveLeft,
   TouchMoveRight,
@@ -24,7 +23,8 @@ import { useGameStore } from './store/useGameStore';
 
 function App() {
   const status = useGameStore((state) => state.status);
-  const records = useGameStore((state) => state.records);
+  const mode = useGameStore((state) => state.mode);
+  const startLevel = useGameStore((state) => state.startLevel);
   const hasSavedGame = useGameStore((state) => state.hasSavedGame);
   const startGame = useGameStore((state) => state.startGame);
   const resumeSavedGame = useGameStore((state) => state.resumeSavedGame);
@@ -36,10 +36,8 @@ function App() {
   useGameLoop();
   useKeyboard();
 
-  // startGame acepta parámetros, así que no puede pasarse directamente a un
-  // onClick: React le entregaría el evento del ratón como si fuera el modo.
-  // El selector de modo llega en M08; hasta entonces, siempre clásico.
-  const startClassic = () => startGame('classic');
+  // Al terminar una partida, "jugar otra vez" repite el mismo modo y nivel.
+  const restart = () => startGame(mode, startLevel);
 
   // Guarda la partida cuando la pestaña deja de verse. Es el único momento
   // fiable para hacerlo en móvil: al cambiar de aplicación el navegador puede
@@ -63,7 +61,7 @@ function App() {
     <main className="flex h-dvh items-center justify-center overflow-hidden bg-slate-950 p-2 md:p-4">
       <div className="flex w-full flex-col items-center gap-3 md:w-auto md:flex-row md:items-start md:gap-10">
         <div className="flex flex-col items-stretch gap-2">
-                    <div className="flex items-end justify-between gap-4">
+          <div className="flex items-end justify-between gap-4">
             <div className="flex-1">
               <ScoreBar />
             </div>
@@ -96,52 +94,19 @@ function App() {
 
               {!showSettings && status === 'menu' && (
                 <Overlay title="Bloque a Bloque">
-                  <Logo size={56} className="md:hidden" />
-                  <Logo size={88} className="hidden md:block" />
+                  <Logo size={44} className="md:hidden" />
+                  <Logo size={72} className="hidden md:block" />
 
-                  {/* El récord se ve antes de empezar (requisito C27). */}
-                  <div className="flex items-center gap-1.5 text-amber-400">
-                    <CrownIcon className="h-4 w-4" />
-                    <span className="font-mono text-lg tabular-nums">
-                      {records.classic}
-                    </span>
-                  </div>
+                  <ModePicker onPlay={startGame} />
 
-                  {/* Las teclas no sirven de nada en móvil (requisito C29). */}
-                  <p className="hidden max-w-xs text-sm text-slate-400 md:block">
-                    Flechas para mover y rotar. Espacio para caída rápida. P para
-                    pausar.
-                  </p>
-                    {/* TEMPORAL — M04. Selector de pruebas hasta que llegue el
-                      selector real en M08. */}
-                  <div className="flex flex-wrap justify-center gap-1">
-                    {MODE_ORDER.map((id) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => startGame(id, id === 'fixed' ? 10 : 1)}
-                        className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700"
-                      >
-                        {MODES[id].name}
-                      </button>
-                    ))}
-                  </div>
-
-                  {hasSavedGame ? (
-                    <>
-                      <OverlayButton onClick={resumeSavedGame}>
-                        Continuar partida
-                      </OverlayButton>
-                      <button
-                        type="button"
-                        onClick={startClassic}
-                        className="text-sm text-slate-400 underline hover:text-slate-200"
-                      >
-                        Empezar de cero
-                      </button>
-                    </>
-                  ) : (
-                    <OverlayButton onClick={startClassic}>Jugar</OverlayButton>
+                  {hasSavedGame && (
+                    <button
+                      type="button"
+                      onClick={resumeSavedGame}
+                      className="text-sm text-slate-400 underline hover:text-slate-200"
+                    >
+                      Continuar partida
+                    </button>
                   )}
 
                   <button
@@ -178,7 +143,7 @@ function App() {
 
               {!showSettings && status === 'gameover' && (
                 <Overlay title="Fin de partida">
-                  <GameOverPanel onRestart={startClassic} />
+                  <GameOverPanel onRestart={restart} />
                 </Overlay>
               )}
             </div>
