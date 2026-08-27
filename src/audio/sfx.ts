@@ -1,15 +1,25 @@
 // Efectos de sonido generados con osciladores, sin ningún archivo de audio
 // (restricción C3 de la constitución).
 //
+// Los de la v1 eran ondas cuadradas: sonaban a consola de los ochenta y
+// cansaban al oírse decenas de veces por partida. Tres cambios los suavizan
+// (v4, requisitos M33 a M37):
+//
+//   1. Ondas 'sine' y 'triangle' en lugar de 'square'. Es lo que más cambia:
+//      la cuadrada tiene muchos armónicos agudos y por eso pincha.
+//   2. Ataque más lento, de 10 a 25 ms, que quita el chasquido del inicio.
+//   3. Un filtro paso bajo que recorta lo que quede de agudos.
+//
+// Y el volumen general baja: mover y rotar suenan constantemente y son los que
+// más cansan.
+//
 // Dos detalles que condicionan todo este archivo:
 //
-// 1. Los navegadores bloquean el audio hasta que el usuario interactúa con la
-//    página. Por eso el AudioContext se crea de forma perezosa, en la primera
-//    llamada, que siempre viene de una pulsación.
-//
-// 2. Un oscilador solo se puede arrancar una vez. Se crea uno nuevo por cada
-//    sonido y se descarta; es la forma correcta de usar esta API, no un
-//    derroche.
+//   - Los navegadores bloquean el audio hasta que el usuario interactúa con la
+//     página. Por eso el AudioContext se crea de forma perezosa, en la primera
+//     llamada, que siempre viene de una pulsación.
+//   - Un oscilador solo se puede arrancar una vez. Se crea uno nuevo por cada
+//     sonido y se descarta; es la forma correcta de usar esta API.
 
 let context: AudioContext | null = null;
 
@@ -26,22 +36,39 @@ function getContext(): AudioContext | null {
   }
 }
 
+interface ToneOptions {
+  /** Frecuencia en hercios. */
+  freq: number;
+  /** Duración en segundos. */
+  duration: number;
+  /** Retraso desde ahora, para encadenar notas. */
+  delay?: number;
+  /** Forma de onda. */
+  type?: OscillatorType;
+  /** Volumen de 0 a 1. */
+  volume?: number;
+  /** Corte del filtro paso bajo, en hercios. */
+  cutoff?: number;
+  /** Frecuencia final, si se quiere un deslizamiento de tono. */
+  slideTo?: number;
+}
+
 /**
- * Reproduce una nota corta.
+ * Reproduce una nota corta y suave.
  *
- * @param frequency  Frecuencia en hercios.
- * @param duration   Duración en segundos.
- * @param delay      Retraso desde ahora, para encadenar notas.
- * @param type       Forma de onda. 'square' suena retro; 'sine' más suave.
- * @param volume     Volumen de 0 a 1.
+ * La cadena es oscilador → filtro → ganancia → salida. El filtro es lo que
+ * separa un sonido agradable de un pitido: recorta los agudos que hacen que un
+ * tono corto suene a chasquido.
  */
-function beep(
-  frequency: number,
-  duration: number,
+function tone({
+  freq,
+  duration,
   delay = 0,
-  type: OscillatorType = 'square',
-  volume = 0.08,
-): void {
+  type = 'sine',
+  volume = 0.06,
+  cutoff = 2000,
+  slideTo,
+}: ToneOptions): void {
   const ctx = getContext();
   if (!ctx) return;
 
@@ -51,24 +78,37 @@ function beep(
   }
 
   const start = ctx.currentTime + delay;
+  const end = start + duration;
 
   const oscillator = ctx.createOscillator();
+  const filter = ctx.createBiquadFilter();
   const gain = ctx.createGain();
 
   oscillator.type = type;
-  oscillator.frequency.value = frequency;
+  oscillator.frequency.setValueAtTime(freq, start);
 
-  // Envolvente: subida casi instantánea y caída exponencial. Sin esto, el
-  // sonido empieza y acaba con un chasquido muy desagradable.
+  // Deslizamiento de tono, para los sonidos que "caen" o "suben".
+  if (slideTo !== undefined) {
+    oscillator.frequency.exponentialRampToValueAtTime(slideTo, end);
+  }
+
+  filter.type = 'lowpass';
+  filter.frequency.value = cutoff;
+  // Q bajo: un filtro suave, sin resonancia que vuelva a meter carácter agudo.
+  filter.Q.value = 0.7;
+
+  // Envolvente: ataque de 25 ms y caída exponencial. Sin el ataque, el sonido
+  // empieza de golpe y se oye un chasquido.
   gain.gain.setValueAtTime(0, start);
-  gain.gain.linearRampToValueAtTime(volume, start + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  gain.gain.linearRampToValueAtTime(volume, start + 0.025);
+  gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
-  oscillator.connect(gain);
+  oscillator.connect(filter);
+  filter.connect(gain);
   gain.connect(ctx.destination);
 
   oscillator.start(start);
-  oscillator.stop(start + duration);
+  oscillator.stop(end + 0.02);
 }
 
 /**
@@ -78,29 +118,38 @@ function beep(
  * conoce el store, para no acoplar el audio al estado de la aplicación.
  */
 export const sfx = {
-  move: () => beep(180, 0.04),
-  rotate: () => beep(320, 0.05),
-  lock: () => beep(110, 0.08, 0, 'square', 0.1),
-  hardDrop: () => beep(90, 0.1, 0, 'square', 0.12),
+   /** Corto y discreto, pero audible: se oye cientos de veces por partida. */
+  move: () => tone({ freq: 380, duration: 0.06, volume: 0.07, cutoff: 2000 }),
 
-  /** Dos notas ascendentes; con cuatro líneas, tres notas y más volumen. */
+  rotate: () =>
+    tone({ freq: 520, duration: 0.07, type: 'triangle', volume: 0.08, cutoff: 2400 }),
+
+  /** Golpe al apoyar la pieza. Cae de tono para dar sensación de peso. */
+  lock: () =>
+    tone({ freq: 330, duration: 0.14, volume: 0.13, cutoff: 1800, slideTo: 220 }),
+
+  /** Como el anterior pero más rotundo, porque la caída fue intencionada. */
+  hardDrop: () =>
+    tone({ freq: 300, duration: 0.18, volume: 0.16, cutoff: 1800, slideTo: 170 }),
+  /** Dos notas ascendentes; con cuatro líneas, una tercera más aguda. */
   clear: (count: number) => {
-    beep(520, 0.09, 0, 'sine', 0.12);
-    beep(660, 0.09, 0.08, 'sine', 0.12);
+    tone({ freq: 523, duration: 0.16, volume: 0.055, cutoff: 2600 });
+    tone({ freq: 659, duration: 0.18, delay: 0.09, volume: 0.055, cutoff: 2600 });
     if (count === 4) {
-      beep(880, 0.14, 0.16, 'sine', 0.14);
+      tone({ freq: 880, duration: 0.28, delay: 0.19, volume: 0.06, cutoff: 3000 });
     }
   },
 
+  /** Arpegio de tres notas, claramente distinto del de línea. */
   levelUp: () => {
-    beep(440, 0.1, 0, 'sine', 0.12);
-    beep(560, 0.1, 0.09, 'sine', 0.12);
-    beep(700, 0.16, 0.18, 'sine', 0.12);
+    tone({ freq: 440, duration: 0.16, volume: 0.05, cutoff: 2400 });
+    tone({ freq: 587, duration: 0.16, delay: 0.1, volume: 0.05, cutoff: 2400 });
+    tone({ freq: 784, duration: 0.32, delay: 0.2, volume: 0.055, cutoff: 2600 });
   },
 
+  /** Tono descendente, largo y apagado. */
   gameOver: () => {
-    beep(300, 0.16, 0, 'sine', 0.12);
-    beep(220, 0.16, 0.15, 'sine', 0.12);
-    beep(140, 0.32, 0.3, 'sine', 0.12);
+    tone({ freq: 392, duration: 0.3, volume: 0.055, cutoff: 1200, slideTo: 262 });
+    tone({ freq: 262, duration: 0.6, delay: 0.28, volume: 0.05, cutoff: 900, slideTo: 165 });
   },
 };
