@@ -11,6 +11,7 @@ import { Overlay, OverlayButton } from './components/Overlay';
 import { ScoreBar } from './components/ScoreBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Timer } from './components/Timer';
+import { UnlockBanner } from './components/UnlockBanner';
 import {
   TouchMoveLeft,
   TouchMoveRight,
@@ -85,6 +86,7 @@ function App() {
 
               <LevelUpBanner />
               <ComboBanner />
+              <UnlockBanner />
 
               {showSettings && (
                 <Overlay title="Ajustes">

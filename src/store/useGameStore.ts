@@ -37,6 +37,7 @@ import {
   saveSprintRecord,
 } from '../storage/records';
 import { clearSavedGame, loadSavedGame, saveGame } from '../storage/savedGame';
+import { NEON_SCORE } from '../storage/unlocks';
 import { useSettingsStore } from './useSettingsStore';
 
 /**
@@ -401,7 +402,6 @@ function finishClearing(
 function saveRecordForMode(
   state: GameStore,
   finalScore: number,
-
   reason: GameOverReason,
 ): Records {
   switch (state.mode) {
@@ -426,6 +426,32 @@ function saveRecordForMode(
   }
 }
 
+/**
+ * Comprueba si la partida que acaba de terminar desbloquea algún estilo
+ * (requisitos M40 y M41).
+ *
+ * Vive junto al fin de partida porque las dos condiciones se evalúan ahí: una
+ * mira la puntuación final y la otra si el Sprint llegó a su objetivo.
+ *
+ * El store de ajustes se encarga de no avisar dos veces si ya estaba
+ * desbloqueado, así que aquí no hace falta comprobarlo.
+ */
+function checkUnlocks(
+  mode: ModeId,
+  finalScore: number,
+  reason: GameOverReason,
+): void {
+  const { unlock } = useSettingsStore.getState();
+
+  if (mode === 'classic' && finalScore >= NEON_SCORE) {
+    unlock('neon');
+  }
+
+  if (mode === 'sprint' && reason === 'goal') {
+    unlock('retro');
+  }
+}
+
 /** Termina la partida, guarda la marca y deja el estado listo para mostrarla. */
 function endGame(
   set: (partial: Partial<GameStore>) => void,
@@ -439,6 +465,8 @@ function endGame(
   clearSavedGame();
   cancelClearTimer();
   play(sfx.gameOver);
+
+  checkUnlocks(state.mode, finalScore, reason);
 
   set({
     board,
