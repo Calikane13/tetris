@@ -1,10 +1,12 @@
-// Panel de ajustes: sonido, fantasma y reasignación de teclas (regla R42).
+// Panel de ajustes: sonido, fantasma, estilo de bloque y reasignación de
+// teclas (reglas R42, M42, M43).
 //
 // Para reasignar, se pulsa el botón de una acción y el panel entra en modo
 // escucha: la siguiente tecla que se pulse queda asignada. Es más directo que
 // una lista desplegable y evita tener que enumerar todas las teclas posibles.
 
 import { useEffect, useState } from 'react';
+import { BLOCK_STYLES, STYLE_INFO, STYLE_ORDER } from '../engine/blockStyles';
 import type { Action } from '../storage/settings';
 import { ACTION_LABELS, ALL_ACTIONS, keyLabel } from '../storage/settings';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -35,10 +37,13 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const sound = useSettingsStore((state) => state.sound);
   const ghost = useSettingsStore((state) => state.ghost);
   const keys = useSettingsStore((state) => state.keys);
+  const blockStyle = useSettingsStore((state) => state.blockStyle);
+  const unlocked = useSettingsStore((state) => state.unlocked);
   const toggleSound = useSettingsStore((state) => state.toggleSound);
   const toggleGhost = useSettingsStore((state) => state.toggleGhost);
   const setKey = useSettingsStore((state) => state.setKey);
   const resetKeys = useSettingsStore((state) => state.resetKeys);
+  const setBlockStyle = useSettingsStore((state) => state.setBlockStyle);
 
   /** Acción que está esperando una tecla, o null si no hay ninguna. */
   const [listening, setListening] = useState<Action | null>(null);
@@ -67,10 +72,58 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   }, [listening, setKey]);
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-5 text-left">
+    <div className="flex max-h-[80vh] w-full max-w-sm flex-col gap-5 overflow-y-auto text-left">
       <div className="flex flex-col gap-3">
         <Toggle label="Sonido" checked={sound} onChange={toggleSound} />
         <Toggle label="Pieza fantasma" checked={ghost} onChange={toggleGhost} />
+      </div>
+
+      {/* Estilo de bloque (requisitos M42 y M43). Cada opción se muestra con una
+          pieza de ejemplo dibujada en ese estilo: es más claro que el nombre. */}
+      <div className="flex flex-col gap-2">
+        <h3 className="text-xs uppercase tracking-wide text-slate-500">Bloques</h3>
+
+        <div className="flex flex-col gap-1.5">
+          {STYLE_ORDER.map((id) => {
+            const info = STYLE_INFO[id];
+            const available = unlocked.includes(id);
+            const selected = blockStyle === id;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                disabled={!available}
+                onClick={() => setBlockStyle(id)}
+                aria-pressed={selected}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
+                  selected
+                    ? 'bg-slate-700'
+                    : available
+                      ? 'bg-slate-800 hover:bg-slate-700'
+                      : 'bg-slate-900 opacity-60'
+                }`}
+              >
+                {/* Muestra: cuatro celdas en el estilo correspondiente. */}
+                <span className="flex shrink-0 gap-px">
+                  {(['I', 'T', 'S', 'L'] as const).map((piece) => (
+                    <span
+                      key={piece}
+                      className={`relative block h-4 w-4 ${BLOCK_STYLES[id][piece].base}`}
+                    />
+                  ))}
+                </span>
+
+                <span className="flex flex-col">
+                  <span className="text-sm text-slate-200">{info.name}</span>
+                  <span className="text-xs text-slate-500">
+                    {available ? info.description : info.requirement}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">

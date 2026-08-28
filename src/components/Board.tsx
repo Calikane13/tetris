@@ -18,6 +18,7 @@ export function Board() {
   const clearingRows = useGameStore((state) => state.clearingRows);
   const combo = useGameStore((state) => state.combo);
   const showGhost = useSettingsStore((state) => state.ghost);
+  const style = useSettingsStore((state) => state.blockStyle);
 
   // Set en vez de array: la consulta se hace 200 veces al pintar, y con un
   // includes() sobre un array serían 200 recorridos.
@@ -76,6 +77,7 @@ export function Board() {
             clearing={clearing.has(rowIndex)}
             combo={isComboSweep}
             col={colIndex}
+            style={style}
           />
         )),
       )}

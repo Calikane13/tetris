@@ -2,7 +2,9 @@
 // tablero), así que va envuelto en memo para que solo se repinte si cambia.
 
 import { memo } from 'react';
-import { GHOST_BORDERS, LINE_CLEAR_STEP_MS, PIECE_STYLES } from '../engine/constants';
+import { BLOCK_STYLES } from '../engine/blockStyles';
+import type { StyleId } from '../engine/blockStyles';
+import { GHOST_BORDERS, LINE_CLEAR_STEP_MS } from '../engine/constants';
 import type { PieceType } from '../engine/types';
 
 interface CellProps {
@@ -16,28 +18,29 @@ interface CellProps {
   combo: boolean;
   /** Columna de la celda. Escalona el barrido para que parezca desplazarse. */
   col: number;
+  /** Estilo de bloque elegido en los ajustes. */
+  style: StyleId;
 }
 
-function CellComponent({ filled, ghost, clearing, combo, col }: CellProps) {
+function CellComponent({ filled, ghost, clearing, combo, col, style }: CellProps) {
   if (filled) {
-    const style = PIECE_STYLES[filled];
+    const look = BLOCK_STYLES[style][filled];
 
-    // Bordes de distinto color en cada lado: claros arriba y a la izquierda,
-    // oscuros abajo y a la derecha. Es lo que da la sensación de volumen.
-    //
-    // Sin border-radius a propósito (requisito V10): con esquinas redondeadas,
-    // los cuatro bordes de distinto color se cortan en diagonales que se ven
-    // sucias. Cuadrado queda limpio y además encaja con el aspecto retro.
     return (
-      <div
-        className={`relative h-full w-full border-2 border-solid ${style.fill} ${style.light} ${style.dark}`}
-      >
+      <div className={`relative h-full w-full ${look.base}`}>
+        {/* Brillo del estilo Gel: una elipse clara arriba a la izquierda, que
+            es lo que da el aspecto de caramelo. Los demás estilos no lo usan. */}
+        {look.shine && (
+          <span
+            className={`pointer-events-none absolute left-[15%] top-[12%] h-[22%] w-[38%] rounded-full opacity-60 ${look.shine}`}
+          />
+        )}
+
         {clearing && (
           // El retraso creciente por columna es lo que convierte encendidos
           // individuales en un barrido que recorre la fila (requisitos V5, V6).
           //
-          // En racha, el barrido es amarillo en lugar de blanco (requisito C13):
-          // permite ver de un vistazo si la línea forma parte de un combo.
+          // En racha, el barrido es amarillo en lugar de blanco (requisito C13).
           <span
             className={combo ? 'line-sweep-combo' : 'line-sweep'}
             style={{ animationDelay: `${col * LINE_CLEAR_STEP_MS}ms` }}
@@ -48,8 +51,8 @@ function CellComponent({ filled, ghost, clearing, combo, col }: CellProps) {
   }
 
   if (ghost) {
-    // El fantasma no lleva relieve, para que no se confunda con un bloque real
-    // (requisito V13).
+    // El fantasma no cambia con el estilo: siempre contorno hueco, para que no
+    // se confunda con un bloque real (requisito V13).
     return (
       <div
         className={`h-full w-full rounded-sm border-2 bg-transparent ${GHOST_BORDERS[ghost]}`}

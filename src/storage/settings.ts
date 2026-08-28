@@ -1,8 +1,10 @@
-// Ajustes del jugador: sonido, fantasma y asignación de teclas (regla R42).
+// Ajustes del jugador: sonido, fantasma, teclas y estilo de bloque (regla R42).
 //
 // A diferencia de la partida, los ajustes se guardan en cuanto cambian: son
 // pocos bytes y el usuario espera que se recuerden al instante.
 
+import type { StyleId } from '../engine/blockStyles';
+import { STYLE_ORDER } from '../engine/blockStyles';
 import {
   hasValidVersion,
   readJson,
@@ -53,6 +55,8 @@ export interface Settings {
   sound: boolean;
   ghost: boolean;
   keys: KeyMap;
+  /** Estilo de bloque elegido (v4, requisito M42). */
+  blockStyle: StyleId;
 }
 
 export const DEFAULT_KEYS: KeyMap = {
@@ -69,6 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   ghost: true,
   keys: DEFAULT_KEYS,
+  blockStyle: 'relief',
 };
 
 /**
@@ -93,6 +98,11 @@ export function keyLabel(code: string): string {
 
   // KeyZ pasa a Z, Digit1 pasa a 1.
   return code.replace(/^Key/, '').replace(/^Digit/, '');
+}
+
+/** Comprueba que un valor es un identificador de estilo conocido. */
+function isStyleId(value: unknown): value is StyleId {
+  return typeof value === 'string' && (STYLE_ORDER as readonly string[]).includes(value);
 }
 
 /** Lee los ajustes guardados, rellenando con los valores por defecto lo que falte. */
@@ -121,6 +131,8 @@ export function loadSettings(): Settings {
     sound: typeof data.sound === 'boolean' ? data.sound : DEFAULT_SETTINGS.sound,
     ghost: typeof data.ghost === 'boolean' ? data.ghost : DEFAULT_SETTINGS.ghost,
     keys,
+    // Los ajustes guardados con la v3 no tienen estilo: toman el por defecto.
+    blockStyle: isStyleId(data.blockStyle) ? data.blockStyle : DEFAULT_SETTINGS.blockStyle,
   };
 }
 
