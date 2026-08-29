@@ -1,13 +1,56 @@
 // Pantalla del modo arena (v5).
 //
-// De momento se monta sola, para poder probarla. En S09 se integra con el menú
-// y los modos del juego principal.
+// Todo lo visual del modo vive aquí. La lógica está en useSandStore, y el
+// dibujo del tablero en SandCanvas.
 
 import { useEffect } from 'react';
+import { CrownIcon } from '../components/CrownIcon';
+import { getCells } from '../engine/tetrominoes';
+import { useGameStore } from '../store/useGameStore';
 import { SAND_COLOR_NAMES, SAND_COLORS } from './constants';
 import { SandCanvas } from './SandCanvas';
 import { useSandLoop } from './useSandLoop';
 import { useSandStore } from './useSandStore';
+
+/** Recuadro de la siguiente pieza, en su color real. */
+function NextSandPiece() {
+  const next = useSandStore((state) => state.next);
+  const nextColor = useSandStore((state) => state.nextColor);
+
+  const cells = getCells(next, 0);
+  const occupied = new Set(cells.map((cell) => `${cell.row}-${cell.col}`));
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs uppercase tracking-wide text-slate-500">
+        Siguiente
+      </span>
+
+      <div
+        className="grid gap-px"
+        style={{
+          gridTemplateColumns: 'repeat(4, calc(var(--cell) * 0.7))',
+          gridTemplateRows: 'repeat(4, calc(var(--cell) * 0.7))',
+        }}
+      >
+        {Array.from({ length: 16 }, (_, i) => {
+          const row = Math.floor(i / 4);
+          const col = i % 4;
+          const filled = occupied.has(`${row}-${col}`);
+
+          return (
+            <span
+              key={i}
+              style={{
+                backgroundColor: filled ? SAND_COLORS[nextColor] : '#0f172a',
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function SandGame() {
   const grid = useSandStore((state) => state.grid);
@@ -22,6 +65,9 @@ export function SandGame() {
   const startGame = useSandStore((state) => state.startGame);
   const clearNewColor = useSandStore((state) => state.clearNewColor);
 
+  // La marca del modo vive en el store clásico, junto a las de los demás modos.
+  const sandRecord = useGameStore((state) => state.records.sand);
+
   useSandLoop();
 
   // El aviso de color nuevo desaparece solo.
@@ -31,7 +77,7 @@ export function SandGame() {
     return () => window.clearTimeout(timer);
   }, [newColor, clearNewColor]);
 
-  // Controles de teclado. Provisional: en S09 pasa a usar el hook compartido,
+  // Controles de teclado. Provisional: podría pasar a usar el hook compartido
   // con las teclas de los ajustes.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -73,25 +119,47 @@ export function SandGame() {
 
   return (
     <div className="flex flex-col items-center gap-3">
+      {/* Cabecera: puntuación y récord a la izquierda, siguiente pieza y
+          colores en juego a la derecha. */}
       <div className="flex w-full items-end justify-between gap-4">
-        <div>
-          <span className="block text-xs uppercase tracking-wide text-slate-500">
-            Puntos
-          </span>
-          <span className="block font-mono text-3xl tabular-nums text-slate-100">
-            {score}
-          </span>
+        <div className="flex flex-col gap-1">
+          <div>
+            <span className="block text-xs uppercase tracking-wide text-slate-500">
+              Puntos
+            </span>
+            <span className="block font-mono text-3xl leading-none tabular-nums text-slate-100">
+              {score}
+            </span>
+          </div>
+
+          {/* La marca sube en vivo si la partida la supera, igual que en el
+              modo clásico (requisito V21). */}
+          <div className="flex items-center gap-1.5 text-amber-400">
+            <CrownIcon className="h-4 w-4" />
+            <span className="font-mono text-base tabular-nums">
+              {Math.max(sandRecord, score)}
+            </span>
+          </div>
         </div>
 
-        {/* Los colores en juego, como referencia visual de la dificultad. */}
-        <div className="flex gap-1">
-          {Array.from({ length: colorCount }, (_, i) => (
-            <span
-              key={i}
-              className="block h-3 w-3 rounded-sm"
-              style={{ backgroundColor: SAND_COLORS[i + 1] }}
-            />
-          ))}
+        <div className="flex items-end gap-4">
+          <NextSandPiece />
+
+          {/* Los colores en juego, como referencia visual de la dificultad. */}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-xs uppercase tracking-wide text-slate-500">
+              Colores
+            </span>
+            <div className="flex gap-1">
+              {Array.from({ length: colorCount }, (_, i) => (
+                <span
+                  key={i}
+                  className="block h-3 w-3 rounded-sm"
+                  style={{ backgroundColor: SAND_COLORS[i + 1] }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -142,7 +210,16 @@ export function SandGame() {
               </p>
             )}
 
-            {phase === 'gameover' && <p className="text-slate-300">{score} puntos</p>}
+            {phase === 'gameover' && (
+              <>
+                <p className="text-slate-300">{score} puntos</p>
+                {score >= sandRecord && score > 0 && (
+                  <p className="text-sm font-semibold text-amber-400">
+                    ¡Récord nuevo!
+                  </p>
+                )}
+              </>
+            )}
 
             <button
               type="button"
@@ -161,7 +238,7 @@ export function SandGame() {
         )}
       </div>
 
-      <p className="text-xs text-slate-500">
+      <p className="hidden text-xs text-slate-500 md:block">
         Flechas para mover y rotar. Espacio para caída rápida. P para pausar.
       </p>
     </div>
