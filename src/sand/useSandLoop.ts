@@ -4,9 +4,12 @@
 // al store. Va aparte porque el modo tiene su propio estado y sus propias
 // fases, y mezclarlos obligaría a llenar el bucle clásico de condicionales.
 //
-// Corre durante 'falling' y durante 'settling': en la primera fase mueve la
-// pieza, y en la segunda hace caer la arena un paso por fotograma, que es lo
-// que permite ver el asentamiento (requisito A14).
+// Corre durante 'falling' y 'settling'. En la primera mueve la pieza; en la
+// segunda hace caer la arena un paso por fotograma, que es lo que permite ver
+// el asentamiento (requisito A14).
+//
+// Durante 'flashing' no hace falta: esa fase la resuelve un temporizador del
+// store, y el destello es puro CSS.
 
 import { useEffect } from 'react';
 import { MAX_FRAME_DELTA } from '../engine/constants';

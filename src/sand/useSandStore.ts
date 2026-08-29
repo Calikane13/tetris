@@ -1,12 +1,12 @@
-// Estado del modo arena (v5, requisitos A6 a A9, A13, A14).
+// Estado del modo arena (v5, requisitos A6 a A9, A13 a A20, A25 a A27).
 //
 // Store propio, separado del clásico. Comparte la forma de las acciones (mover,
 // rotar, caídas) para que los controles funcionen igual, pero no comparte
 // código: el tablero, la caída y la limpieza son otra cosa.
 //
 // La pieza activa vive en la rejilla gruesa de 10x20, no en la de granos. Eso
-// es lo que permite reutilizar rotación y colisiones del motor clásico sin
-// tocar una línea: mientras cae, la pieza es un bloque rígido normal. Solo al
+// es lo que permite reutilizar las formas y la lógica de rotación sin
+// reescribirlas: mientras cae, la pieza es un bloque rígido normal. Solo al
 // fijarse se convierte en arena.
 
 import { create } from 'zustand';
@@ -18,11 +18,17 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import {
   CELL_COLS,
   CELL_ROWS,
+  COLOR_THRESHOLDS,
   DANGER_ROW,
   GRAINS_PER_CELL,
   INITIAL_COLORS,
+  MASS_FLASH_MS,
+  MAX_CHAIN,
+  POINTS_PER_GRAIN,
+  SAND_COLORS,
 } from './constants';
 import { copyGrid, createGrid, fillCell, type SandGrid } from './grid';
+import { findConnectedMasses, removeMass } from './masses';
 import { isAboveDanger, stepPhysics } from './physics';
 
 /**
@@ -30,11 +36,17 @@ import { isAboveDanger, stepPhysics } from './physics';
  *
  * 'falling'   la pieza se controla, como siempre
  * 'settling'  la pieza se desmoronó, la arena cae, no se acepta entrada
- * 'gameover'  se acabó
+ * 'flashing'  hay masas iluminándose antes de desaparecer
  *
  * Es el mismo patrón de fases que la animación de línea de la v2.
  */
-export type SandPhase = 'menu' | 'falling' | 'settling' | 'paused' | 'gameover';
+export type SandPhase =
+  | 'menu'
+  | 'falling'
+  | 'settling'
+  | 'flashing'
+  | 'paused'
+  | 'gameover';
 
 interface SandStore {
   grid: SandGrid;
@@ -47,6 +59,12 @@ interface SandStore {
   score: number;
   /** Cuántos colores están en juego ahora mismo. */
   colorCount: number;
+  /** Eliminaciones encadenadas de la secuencia actual. */
+  chain: number;
+  /** Granos iluminándose ahora mismo, o null. */
+  flashing: Uint8Array | null;
+  /** Color recién añadido, para avisar en pantalla. */
+  newColor: number | null;
 
   startGame: () => void;
   moveLeft: () => void;
@@ -57,13 +75,24 @@ interface SandStore {
   hardDrop: () => void;
   togglePause: () => void;
   exitToMenu: () => void;
+  clearNewColor: () => void;
 }
 
 /** Acumulador de gravedad, fuera del estado para no provocar renderizados. */
 let dropAccumulator = 0;
 
+/** Temporizador del destello de las masas. */
+let flashTimer: number | null = null;
+
 /** Intervalo de caída de la pieza, en milisegundos. */
 const DROP_INTERVAL = 700;
+
+function cancelFlashTimer(): void {
+  if (flashTimer !== null) {
+    clearTimeout(flashTimer);
+    flashTimer = null;
+  }
+}
 
 /** Reproduce un efecto solo si el sonido está activado en los ajustes. */
 function play(effect: () => void): void {
@@ -78,13 +107,30 @@ function randomColor(colorCount: number): number {
 }
 
 /**
+ * Cuántos colores corresponden a una puntuación dada (requisitos A21, A22).
+ *
+ * Nunca baja de INITIAL_COLORS ni sube de los colores que existen.
+ */
+function colorsForScore(score: number): number {
+  let count = INITIAL_COLORS;
+
+  for (let i = INITIAL_COLORS + 1; i < COLOR_THRESHOLDS.length; i++) {
+    if (score >= COLOR_THRESHOLDS[i]) count = i;
+  }
+
+  return Math.min(count, SAND_COLORS.length - 1);
+}
+
+/**
  * Comprueba si la pieza cabe en el tablero grueso.
  *
- * No se puede usar isValidPosition del motor clásico porque aquel consulta un
- * tablero de celdas, y aquí lo que hay debajo son granos. Se traduce cada celda
- * de la pieza a su cuadrado de granos y se mira si alguno está ocupado.
+ * Se traduce cada celda de la pieza a su cuadrado de granos y se mira si alguno
+ * está ocupado. Es lo que hace que la pieza se comporte como un bloque rígido
+ * aunque debajo haya arena suelta.
  */
 function fits(grid: SandGrid, piece: ActivePiece): boolean {
+  const cols = CELL_COLS * GRAINS_PER_CELL;
+
   for (const cell of getCells(piece.type, piece.rotation)) {
     const cellRow = piece.row + cell.row;
     const cellCol = piece.col + cell.col;
@@ -95,15 +141,12 @@ function fits(grid: SandGrid, piece: ActivePiece): boolean {
     // Por encima del tablero se permite, como en el juego clásico.
     if (cellRow < 0) continue;
 
-    // ¿Hay algún grano en el cuadrado que ocuparía esta celda?
     const startRow = cellRow * GRAINS_PER_CELL;
     const startCol = cellCol * GRAINS_PER_CELL;
 
     for (let r = 0; r < GRAINS_PER_CELL; r++) {
       for (let c = 0; c < GRAINS_PER_CELL; c++) {
-        const row = startRow + r;
-        const col = startCol + c;
-        if (grid[row * (CELL_COLS * GRAINS_PER_CELL) + col] !== 0) return false;
+        if (grid[(startRow + r) * cols + startCol + c] !== 0) return false;
       }
     }
   }
@@ -122,6 +165,27 @@ function tryMove(
   return fits(grid, moved) ? moved : null;
 }
 
+/**
+ * Rota la pieza contra la rejilla de granos.
+ *
+ * Misma idea que la rotación del motor clásico, incluidos los desplazamientos
+ * laterales, pero comprobando contra granos.
+ */
+function rotateAgainstSand(
+  grid: SandGrid,
+  piece: ActivePiece,
+  direction: 1 | -1,
+): ActivePiece | null {
+  const nextRotation = ((((piece.rotation + direction) % 4) + 4) % 4) as 0 | 1 | 2 | 3;
+
+  for (const offset of [0, 1, -1, 2, -2]) {
+    const candidate = { ...piece, rotation: nextRotation, col: piece.col + offset };
+    if (fits(grid, candidate)) return candidate;
+  }
+
+  return null;
+}
+
 export const useSandStore = create<SandStore>((set, get) => ({
   grid: createGrid(),
   active: null,
@@ -131,9 +195,13 @@ export const useSandStore = create<SandStore>((set, get) => ({
   phase: 'menu',
   score: 0,
   colorCount: INITIAL_COLORS,
+  chain: 0,
+  flashing: null,
+  newColor: null,
 
   startGame: () => {
     dropAccumulator = 0;
+    cancelFlashTimer();
 
     const first = randomPiece();
 
@@ -146,6 +214,9 @@ export const useSandStore = create<SandStore>((set, get) => ({
       phase: 'falling',
       score: 0,
       colorCount: INITIAL_COLORS,
+      chain: 0,
+      flashing: null,
+      newColor: null,
     });
   },
 
@@ -175,8 +246,6 @@ export const useSandStore = create<SandStore>((set, get) => ({
     const { grid, active, phase } = get();
     if (phase !== 'falling' || !active) return;
 
-    // La rotación del motor clásico necesita un tablero de celdas. Aquí se
-    // prueba a mano cada desplazamiento contra la rejilla de granos.
     const rotated = rotateAgainstSand(grid, active, 1);
     if (rotated) {
       set({ active: rotated });
@@ -205,7 +274,7 @@ export const useSandStore = create<SandStore>((set, get) => ({
       dropAccumulator = 0;
       set({ active: moved });
     } else {
-      crumble(set, get);
+      crumble();
     }
   },
 
@@ -220,7 +289,7 @@ export const useSandStore = create<SandStore>((set, get) => ({
 
     set({ active: { ...active, row: active.row + distance } });
     play(sfx.hardDrop);
-    crumble(set, get);
+    crumble();
   },
 
   togglePause: () => {
@@ -229,29 +298,13 @@ export const useSandStore = create<SandStore>((set, get) => ({
     else if (phase === 'paused') set({ phase: 'falling' });
   },
 
-  exitToMenu: () => set({ phase: 'menu' }),
+  exitToMenu: () => {
+    cancelFlashTimer();
+    set({ phase: 'menu' });
+  },
+
+  clearNewColor: () => set({ newColor: null }),
 }));
-
-/**
- * Rota la pieza contra la rejilla de granos.
- *
- * Misma idea que rotate() del motor clásico, incluidos los desplazamientos
- * laterales de la regla R18, pero comprobando contra granos.
- */
-function rotateAgainstSand(
-  grid: SandGrid,
-  piece: ActivePiece,
-  direction: 1 | -1,
-): ActivePiece | null {
-  const nextRotation = ((((piece.rotation + direction) % 4) + 4) % 4) as 0 | 1 | 2 | 3;
-
-  for (const offset of [0, 1, -1, 2, -2]) {
-    const candidate = { ...piece, rotation: nextRotation, col: piece.col + offset };
-    if (fits(grid, candidate)) return candidate;
-  }
-
-  return null;
-}
 
 /**
  * Desmorona la pieza activa en granos (requisito A9).
@@ -259,11 +312,8 @@ function rotateAgainstSand(
  * Cada bloque de la pieza se convierte en GRAINS_PER_CELL granos por lado, del
  * color de la pieza. A partir de ese momento cada grano cae por su cuenta.
  */
-function crumble(
-  set: (partial: Partial<SandStore>) => void,
-  get: () => SandStore,
-): void {
-  const state = get();
+function crumble(): void {
+  const state = useSandStore.getState();
   if (!state.active) return;
 
   const grid = copyGrid(state.grid);
@@ -279,56 +329,78 @@ function crumble(
 
   play(sfx.lock);
 
-  set({
+  useSandStore.setState({
     grid,
     active: null,
     phase: 'settling',
+    // La cadena empieza de cero con cada pieza nueva.
+    chain: 0,
   });
 }
 
 /**
- * Un paso del bucle del modo. La llama useSandLoop en cada fotograma.
+ * La arena terminó de asentarse: se buscan masas que unan ambas paredes.
  *
- * En 'falling' aplica la gravedad de la pieza. En 'settling' hace caer la
- * arena un paso; cuando ya no se mueve nada, saca la siguiente pieza.
+ * Si hay, se iluminan y se borran tras un instante, y la arena vuelve a caer,
+ * lo que puede provocar otra eliminación (requisito A19). Si no hay, sale la
+ * siguiente pieza.
  */
-export function sandTick(delta: number): void {
+function checkMasses(grid: SandGrid): void {
   const state = useSandStore.getState();
 
-  if (state.phase === 'settling') {
-    const grid = copyGrid(state.grid);
-    const moved = stepPhysics(grid);
-
-    if (moved) {
-      // Todavía cae arena: se dibuja el paso y se sigue en la próxima vuelta.
-      useSandStore.setState({ grid });
-      return;
-    }
-
-    // La arena se asentó. Aquí entrará la búsqueda de masas en S05.
+  // Tope de seguridad por si una combinación se realimentara (plan, sección 5.3).
+  if (state.chain >= MAX_CHAIN) {
     spawnNext(grid);
     return;
   }
 
-  if (state.phase !== 'falling' || !state.active) return;
+  const found = findConnectedMasses(grid);
 
-  dropAccumulator += delta;
+  if (!found) {
+    spawnNext(grid);
+    return;
+  }
 
-  while (dropAccumulator >= DROP_INTERVAL) {
-    dropAccumulator -= DROP_INTERVAL;
+  const chain = state.chain + 1;
+
+  // Cada eliminación encadenada vale más que la anterior (requisito A20).
+  const points = found.count * POINTS_PER_GRAIN * chain;
+  const newScore = state.score + points;
+
+  play(() => sfx.clear(Math.min(chain, 4)));
+
+  // Los granos se iluminan antes de desaparecer (requisito A18).
+  useSandStore.setState({
+    grid,
+    flashing: found.mask,
+    phase: 'flashing',
+    chain,
+    score: newScore,
+  });
+
+  cancelFlashTimer();
+  flashTimer = window.setTimeout(() => {
+    flashTimer = null;
 
     const current = useSandStore.getState();
-    if (!current.active) return;
+    if (current.phase !== 'flashing') return;
 
-    const moved = tryMove(current.grid, current.active, 1, 0);
+    const cleared = copyGrid(current.grid);
+    removeMass(cleared, found.mask);
 
-    if (moved) {
-      useSandStore.setState({ active: moved });
-    } else {
-      crumble(useSandStore.setState, useSandStore.getState);
-      return;
-    }
-  }
+    // ¿Toca añadir un color? (requisitos A22, A23)
+    const nextColors = colorsForScore(newScore);
+    const gained = nextColors > current.colorCount ? nextColors : null;
+
+    useSandStore.setState({
+      grid: cleared,
+      flashing: null,
+      // Vuelve a caer: lo que había encima de la masa ahora está en el aire.
+      phase: 'settling',
+      colorCount: nextColors,
+      newColor: gained,
+    });
+  }, MASS_FLASH_MS);
 }
 
 /** Saca la siguiente pieza y comprueba el fin de partida. */
@@ -360,4 +432,49 @@ function spawnNext(grid: SandGrid): void {
     nextColor: randomColor(state.colorCount),
     phase: 'falling',
   });
+}
+
+/**
+ * Un paso del bucle del modo. La llama useSandLoop en cada fotograma.
+ *
+ * En 'falling' aplica la gravedad de la pieza. En 'settling' hace caer la
+ * arena un paso; cuando ya no se mueve nada, busca masas.
+ */
+export function sandTick(delta: number): void {
+  const state = useSandStore.getState();
+
+  if (state.phase === 'settling') {
+    const grid = copyGrid(state.grid);
+    const moved = stepPhysics(grid);
+
+    if (moved) {
+      // Todavía cae arena: se dibuja el paso y se sigue en la próxima vuelta.
+      useSandStore.setState({ grid });
+      return;
+    }
+
+    // La arena se asentó.
+    checkMasses(grid);
+    return;
+  }
+
+  if (state.phase !== 'falling' || !state.active) return;
+
+  dropAccumulator += delta;
+
+  while (dropAccumulator >= DROP_INTERVAL) {
+    dropAccumulator -= DROP_INTERVAL;
+
+    const current = useSandStore.getState();
+    if (!current.active) return;
+
+    const moved = tryMove(current.grid, current.active, 1, 0);
+
+    if (moved) {
+      useSandStore.setState({ active: moved });
+    } else {
+      crumble();
+      return;
+    }
+  }
 }
