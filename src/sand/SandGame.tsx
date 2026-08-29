@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 import { CrownIcon } from '../components/CrownIcon';
+import { PauseButton } from '../components/PauseButton';
 import { getCells } from '../engine/tetrominoes';
 import { useGameStore } from '../store/useGameStore';
 import { SAND_COLOR_NAMES, SAND_COLORS } from './constants';
@@ -52,7 +53,7 @@ function NextSandPiece() {
   );
 }
 
-export function SandGame() {
+export function SandGame({ onExit }: { onExit: () => void }) {
   const grid = useSandStore((state) => state.grid);
   const active = useSandStore((state) => state.active);
   const activeColor = useSandStore((state) => state.activeColor);
@@ -63,6 +64,7 @@ export function SandGame() {
   const colorCount = useSandStore((state) => state.colorCount);
   const newColor = useSandStore((state) => state.newColor);
   const startGame = useSandStore((state) => state.startGame);
+  const togglePause = useSandStore((state) => state.togglePause);
   const clearNewColor = useSandStore((state) => state.clearNewColor);
 
   // La marca del modo vive en el store clásico, junto a las de los demás modos.
@@ -77,8 +79,7 @@ export function SandGame() {
     return () => window.clearTimeout(timer);
   }, [newColor, clearNewColor]);
 
-  // Controles de teclado. Provisional: podría pasar a usar el hook compartido
-  // con las teclas de los ajustes.
+  // Controles de teclado.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const store = useSandStore.getState();
@@ -121,7 +122,7 @@ export function SandGame() {
     <div className="flex flex-col items-center gap-3">
       {/* Cabecera: puntuación y récord a la izquierda, siguiente pieza y
           colores en juego a la derecha. */}
-      <div className="flex w-full items-end justify-between gap-4">
+      <div className="flex w-full items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
           <div>
             <span className="block text-xs uppercase tracking-wide text-slate-500">
@@ -142,7 +143,7 @@ export function SandGame() {
           </div>
         </div>
 
-        <div className="flex items-end gap-4">
+        <div className="flex items-end gap-3">
           <NextSandPiece />
 
           {/* Los colores en juego, como referencia visual de la dificultad. */}
@@ -159,6 +160,15 @@ export function SandGame() {
                 />
               ))}
             </div>
+          </div>
+
+          {/* En móvil no hay tecla P, así que sin este botón no habría forma de
+              pausar ni de salir al menú a media partida. */}
+          <div className="md:hidden">
+            <PauseButton
+              onPause={togglePause}
+              visible={phase === 'falling' || phase === 'settling'}
+            />
           </div>
         </div>
       </div>
@@ -228,12 +238,38 @@ export function SandGame() {
             >
               {phase === 'menu' ? 'Jugar' : 'Otra vez'}
             </button>
+
+            <button
+              type="button"
+              onClick={onExit}
+              className="text-sm text-slate-400 underline hover:text-slate-200"
+            >
+              Salir al menú
+            </button>
           </div>
         )}
 
+        {/* Pausa, con su propia salida al menú: es la única forma de irse a
+            media partida en móvil. */}
         {phase === 'paused' && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/85">
-            <span className="text-2xl font-bold text-slate-100">Pausa</span>
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-slate-950/85">
+            <h2 className="text-2xl font-bold text-slate-100">Pausa</h2>
+
+            <button
+              type="button"
+              onClick={togglePause}
+              className="rounded-lg bg-slate-100 px-6 py-3 font-semibold text-slate-900 hover:bg-white"
+            >
+              Continuar
+            </button>
+
+            <button
+              type="button"
+              onClick={onExit}
+              className="text-sm text-slate-400 underline hover:text-slate-200"
+            >
+              Salir al menú
+            </button>
           </div>
         )}
       </div>

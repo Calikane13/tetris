@@ -8,6 +8,7 @@ import { LiveRegion } from './components/LiveRegion';
 import { Logo } from './components/Logo';
 import { ModePicker } from './components/ModePicker';
 import { Overlay, OverlayButton } from './components/Overlay';
+import { PauseButton } from './components/PauseButton';
 import { ScoreBar } from './components/ScoreBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Timer } from './components/Timer';
@@ -37,7 +38,7 @@ function App() {
 
   const [showSettings, setShowSettings] = useState(false);
 
-  // Qué modo está en marcha. 'menu' significa que no hay ninguno.
+  // Qué modo está en marcha. null significa que no hay ninguno.
   const [activeMode, setActiveMode] = useState<ModeId | null>(null);
 
   useGameLoop();
@@ -85,15 +86,8 @@ function App() {
   // bucle y otras fases. Solo comparte la pantalla.
   if (activeMode && MODES[activeMode].ownEngine) {
     return (
-      <main className="flex h-dvh flex-col items-center justify-center gap-4 overflow-hidden bg-slate-950 p-2 md:p-4">
-        <SandGame />
-        <button
-          type="button"
-          onClick={backToMenu}
-          className="text-sm text-slate-400 underline hover:text-slate-200"
-        >
-          Salir al menú
-        </button>
+      <main className="flex h-dvh flex-col items-center justify-center gap-3 overflow-hidden bg-slate-950 p-2 md:p-4">
+        <SandGame onExit={backToMenu} />
         <LiveRegion />
       </main>
     );
@@ -106,11 +100,20 @@ function App() {
     <main className="flex h-dvh items-center justify-center overflow-hidden bg-slate-950 p-2 md:p-4">
       <div className="flex w-full flex-col items-center gap-3 md:w-auto md:flex-row md:items-start md:gap-10">
         <div className="flex flex-col items-stretch gap-2">
-          <div className="flex items-end justify-between gap-4">
+          <div className="flex items-end justify-between gap-3">
             <div className="flex-1">
               <ScoreBar />
             </div>
             <Timer />
+
+            {/* En móvil no hay tecla P, así que sin este botón no habría forma
+                de pausar ni de salir al menú a media partida. */}
+            <div className="md:hidden">
+              <PauseButton
+                onPause={togglePause}
+                visible={status === 'playing' || status === 'clearing'}
+              />
+            </div>
           </div>
 
           {/* Fila del tablero: girar y bajar a su izquierda, caída rápida a su
