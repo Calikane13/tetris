@@ -1,7 +1,5 @@
 // Marcas por modo de juego (v4, requisitos M23 a M28).
 //
-// Sustituye a bestScore.ts, que guardaba un único número.
-//
 // ATENCIÓN, lo más importante de este archivo: aquí vive el récord del jugador,
 // y hasta la v3 estaba en otro formato. La migración tiene que ser correcta a
 // la primera, porque una vez sobrescrito no hay forma de recuperarlo.
@@ -17,8 +15,8 @@ import {
   writeJson,
 } from './safeStorage';
 
-/** Los cinco modos de juego. */
-export type ModeId = 'classic' | 'sprint' | 'ultra' | 'fixed' | 'zero';
+/** Los modos de juego. */
+export type ModeId = 'classic' | 'sprint' | 'ultra' | 'fixed' | 'zero' | 'sand';
 
 export interface Records {
   /** Mayor puntuación en modo clásico. */
@@ -29,6 +27,8 @@ export interface Records {
   sprint: number;
   /** Mayor puntuación por nivel de inicio en Nivel fijo. */
   fixed: Record<number, number>;
+  /** Mayor puntuación en el modo arena (v5). */
+  sand: number;
 }
 
 const EMPTY_RECORDS: Records = {
@@ -36,6 +36,7 @@ const EMPTY_RECORDS: Records = {
   ultra: 0,
   sprint: 0,
   fixed: {},
+  sand: 0,
 };
 
 /** Comprueba que un valor es un número entero no negativo. */
@@ -63,8 +64,9 @@ function readLegacyBest(): number {
  * Si no hay marcas en el formato nuevo, intenta migrar desde el antiguo: el
  * récord único pasa a ser la marca del modo clásico, que es lo que era.
  *
- * La migración se escribe al leer, no en un paso aparte, para que ocurra la
- * primera vez que el jugador abre la v4 sin tener que acordarse de nada.
+ * Los campos que no existan se rellenan con 0 en lugar de invalidar el objeto
+ * entero. Así, cuando la v5 añadió el modo arena, las marcas guardadas con la
+ * v4 siguieron sirviendo sin tocar nada.
  */
 export function loadRecords(): Records {
   const data = readJson(STORAGE_KEYS.records);
@@ -88,6 +90,7 @@ export function loadRecords(): Records {
       ultra: isCount(data.ultra) ? data.ultra : 0,
       sprint: isCount(data.sprint) ? data.sprint : 0,
       fixed,
+      sand: isCount(data.sand) ? data.sand : 0,
     };
   }
 
@@ -114,11 +117,11 @@ export function saveRecords(records: Records): void {
  * Guarda una puntuación si supera a la marca del modo.
  * Devuelve las marcas resultantes.
  *
- * Vale para clásico y Ultra, donde mayor es mejor.
+ * Vale para los modos donde mayor es mejor.
  */
 export function saveScoreRecord(
   records: Records,
-  mode: 'classic' | 'ultra',
+  mode: 'classic' | 'ultra' | 'sand',
   score: number,
 ): Records {
   if (score <= records[mode]) return records;
@@ -177,6 +180,8 @@ export function recordForMode(
       return records.ultra;
     case 'sprint':
       return records.sprint;
+    case 'sand':
+      return records.sand;
     case 'fixed':
       return records.fixed[startLevel] ?? 0;
     case 'zero':

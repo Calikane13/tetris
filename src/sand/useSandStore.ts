@@ -15,6 +15,7 @@ import { getCells } from '../engine/tetrominoes';
 import type { ActivePiece, PieceType } from '../engine/types';
 import { sfx } from '../audio/sfx';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { loadRecords, saveScoreRecord } from '../storage/records';
 import {
   CELL_COLS,
   CELL_ROWS,
@@ -30,6 +31,7 @@ import {
 import { copyGrid, createGrid, fillCell, type SandGrid } from './grid';
 import { findConnectedMasses, removeMass } from './masses';
 import { isAboveDanger, stepPhysics } from './physics';
+import { useGameStore } from '../store/useGameStore';
 
 /**
  * Fase del modo.
@@ -409,16 +411,14 @@ function spawnNext(grid: SandGrid): void {
 
   // Si la arena ha superado la línea roja, se acabó (requisito A27).
   if (isAboveDanger(grid, DANGER_ROW)) {
-    play(sfx.gameOver);
-    useSandStore.setState({ grid, active: null, phase: 'gameover' });
+    endSandGame(grid, state.score);
     return;
   }
 
   const upcoming = spawnPiece(state.next);
 
   if (!fits(grid, upcoming)) {
-    play(sfx.gameOver);
-    useSandStore.setState({ grid, active: null, phase: 'gameover' });
+    endSandGame(grid, state.score);
     return;
   }
 
@@ -434,6 +434,25 @@ function spawnNext(grid: SandGrid): void {
   });
 }
 
+/**
+ * Termina la partida y guarda la marca del modo (requisito A28).
+ *
+ * Se leen los récords en este momento en lugar de mantenerlos en el store del
+ * modo: así no hay dos copias del mismo dato que puedan quedar desincronizadas
+ * con el store clásico.
+ */
+function endSandGame(grid: SandGrid, finalScore: number): void {
+  play(sfx.gameOver);
+
+  const records = loadRecords();
+  const updated = saveScoreRecord(records, 'sand', finalScore);
+
+  // El store clásico guarda las marcas en memoria y solo las lee al arrancar.
+  // Sin esto, el menú seguiría mostrando la copia antigua hasta recargar.
+  useGameStore.setState({ records: updated });
+
+  useSandStore.setState({ grid, active: null, phase: 'gameover' });
+}
 /**
  * Un paso del bucle del modo. La llama useSandLoop en cada fotograma.
  *

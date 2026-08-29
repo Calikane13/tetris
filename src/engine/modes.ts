@@ -3,7 +3,7 @@
 // Esto es una tabla, no lógica. Aquí no se importa React, ni el store, ni nada
 // del navegador: solo se describe en qué se diferencia cada modo.
 //
-// La regla que sostiene toda la versión: entre modos solo pueden cambiar cuatro
+// La regla que sostiene esta tabla: entre modos solo pueden cambiar cuatro
 // cosas.
 //
 //   1. En qué nivel empieza
@@ -11,9 +11,9 @@
 //   3. Cuándo termina la partida
 //   4. Qué marca guarda
 //
-// Si algún día un modo necesita cambiar algo más, no es un modo: es otro juego,
-// y debe vivir aparte. Esa frontera es lo que impedirá que las versiones
-// futuras, con sus mecánicas propias, conviertan esto en un lío.
+// El modo arena de la v5 es la excepción consciente: no cabe en esas cuatro
+// variaciones porque cambia el tablero entero. Por eso tiene su propio store y
+// su propio bucle, y aquí solo aparece para que el menú pueda ofrecerlo.
 
 import type { ModeId } from '../storage/records';
 
@@ -43,6 +43,13 @@ export interface GameMode {
   lineGoal?: number;
   /** Qué marca guarda al terminar. */
   record: 'score' | 'time' | 'none';
+  /**
+   * Si el modo usa su propio motor en lugar del clásico (v5).
+   *
+   * Solo el modo arena. Quien lo lea sabe que tiene que montar otro tablero y
+   * otro bucle, en vez de los de siempre.
+   */
+  ownEngine?: boolean;
 }
 
 export const MODES: Record<ModeId, GameMode> = {
@@ -99,6 +106,17 @@ export const MODES: Record<ModeId, GameMode> = {
     // haber jugado mucho rato (requisito M22).
     record: 'none',
   },
+
+  sand: {
+    id: 'sand',
+    name: 'Arena',
+    description: 'Las piezas se desmoronan. Une un color de pared a pared.',
+    startLevel: 1,
+    gravity: true,
+    timer: 'none',
+    record: 'score',
+    ownEngine: true,
+  },
 };
 
 /** Los modos en el orden en que se muestran en el menú. */
@@ -108,6 +126,7 @@ export const MODE_ORDER: readonly ModeId[] = [
   'ultra',
   'fixed',
   'zero',
+  'sand',
 ];
 
 /** Niveles que se pueden elegir en Nivel fijo (requisito M15). */
