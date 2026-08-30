@@ -3,15 +3,17 @@
 // Se usan eventos pointer en lugar de touch porque funcionan igual con dedo,
 // ratón y lápiz, y así hay un solo camino de código.
 //
-// Se exportan en tres grupos porque van repartidos por la pantalla en vez de
-// juntos en una barra: girar y bajar pegados al lado izquierdo del tablero,
-// caída rápida al derecho, y los de mover en la fila de abajo, uno en cada
-// extremo. Así ningún botón se solapa con el tablero ni con el HUD, y los
-// pulgares caen de forma natural sobre los de mover, que son los más usados.
+// Van repartidos por la pantalla en vez de juntos en una barra: girar y bajar
+// pegados al lado izquierdo del tablero, caída rápida al derecho, y los de
+// mover en la fila de abajo, uno en cada extremo. Así ningún botón se solapa
+// con el tablero ni con el HUD.
+//
+// Desde la v5 reciben las acciones desde fuera en lugar de leerlas del store
+// clásico: el modo arena tiene su propio store, y sin esto habría que duplicar
+// los botones para cada motor.
 
 import { useEffect, useRef } from 'react';
 import { REPEAT_DELAY, REPEAT_INTERVAL } from '../engine/constants';
-import { useGameStore } from '../store/useGameStore';
 
 interface TouchButtonProps {
   label: string;
@@ -64,48 +66,58 @@ function TouchButton({ label, symbol, onPress, repeat = false }: TouchButtonProp
   );
 }
 
-/** Girar y bajar, al lado izquierdo del tablero. */
-export function TouchSideLeft() {
-  const softDrop = useGameStore((state) => state.softDrop);
-  const rotateCW = useGameStore((state) => state.rotateCW);
+/** Las acciones que necesitan los botones. Las provee quien los monta. */
+export interface TouchActions {
+  moveLeft: () => void;
+  moveRight: () => void;
+  softDrop: () => void;
+  rotateCW: () => void;
+  hardDrop: () => void;
+}
 
+/** Girar y bajar, al lado izquierdo del tablero. */
+export function TouchSideLeft({ actions }: { actions: TouchActions }) {
   return (
     <div className="flex flex-col gap-2 md:hidden">
-      <TouchButton label="Rotar" symbol="⟳" onPress={rotateCW} />
-      <TouchButton label="Bajar" symbol="↓" onPress={softDrop} repeat />
+      <TouchButton label="Rotar" symbol="⟳" onPress={actions.rotateCW} />
+      <TouchButton label="Bajar" symbol="↓" onPress={actions.softDrop} repeat />
     </div>
   );
 }
 
 /** Caída rápida, al lado derecho del tablero. */
-export function TouchSideRight() {
-  const hardDrop = useGameStore((state) => state.hardDrop);
-
+export function TouchSideRight({ actions }: { actions: TouchActions }) {
   return (
     <div className="flex flex-col gap-2 md:hidden">
-      <TouchButton label="Caída rápida" symbol="⤓" onPress={hardDrop} />
+      <TouchButton label="Caída rápida" symbol="⤓" onPress={actions.hardDrop} />
     </div>
   );
 }
 
 /** Mover a la izquierda, en el extremo izquierdo de la fila inferior. */
-export function TouchMoveLeft() {
-  const moveLeft = useGameStore((state) => state.moveLeft);
-
+export function TouchMoveLeft({ actions }: { actions: TouchActions }) {
   return (
     <div className="md:hidden">
-      <TouchButton label="Mover a la izquierda" symbol="←" onPress={moveLeft} repeat />
+      <TouchButton
+        label="Mover a la izquierda"
+        symbol="←"
+        onPress={actions.moveLeft}
+        repeat
+      />
     </div>
   );
 }
 
 /** Mover a la derecha, en el extremo derecho de la fila inferior. */
-export function TouchMoveRight() {
-  const moveRight = useGameStore((state) => state.moveRight);
-
+export function TouchMoveRight({ actions }: { actions: TouchActions }) {
   return (
     <div className="md:hidden">
-      <TouchButton label="Mover a la derecha" symbol="→" onPress={moveRight} repeat />
+      <TouchButton
+        label="Mover a la derecha"
+        symbol="→"
+        onPress={actions.moveRight}
+        repeat
+      />
     </div>
   );
 }

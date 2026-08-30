@@ -44,6 +44,16 @@ function App() {
   useGameLoop();
   useKeyboard();
 
+  // Acciones para los botones táctiles. Se leen del store en el momento de
+  // pulsar, no al montar, para no capturar una versión antigua.
+  const touchActions = {
+    moveLeft: () => useGameStore.getState().moveLeft(),
+    moveRight: () => useGameStore.getState().moveRight(),
+    softDrop: () => useGameStore.getState().softDrop(),
+    rotateCW: () => useGameStore.getState().rotateCW(),
+    hardDrop: () => useGameStore.getState().hardDrop(),
+  };
+
   /**
    * Lanza un modo. Los que usan el motor propio (solo arena, de momento)
    * arrancan su store; el resto, el clásico.
@@ -86,7 +96,7 @@ function App() {
   // bucle y otras fases. Solo comparte la pantalla.
   if (activeMode && MODES[activeMode].ownEngine) {
     return (
-      <main className="flex h-dvh flex-col items-center justify-center gap-3 overflow-hidden bg-slate-950 p-2 md:p-4">
+      <main className="flex h-dvh flex-col items-center justify-center overflow-hidden bg-slate-950 p-2 md:p-4">
         <SandGame onExit={backToMenu} />
         <LiveRegion />
       </main>
@@ -120,7 +130,7 @@ function App() {
               derecha. En escritorio los botones no se muestran y solo queda el
               tablero. */}
           <div className="flex items-center justify-center gap-2">
-            <TouchSideLeft />
+            <TouchSideLeft actions={touchActions} />
 
             {/* relative para que las capas se posicionen sobre el tablero */}
             <div className="relative">
@@ -196,15 +206,15 @@ function App() {
               )}
             </div>
 
-            <TouchSideRight />
+            <TouchSideRight actions={touchActions} />
           </div>
 
           {/* Fila inferior, solo en móvil: mover a la izquierda en un extremo,
               mover a la derecha en el otro, y el HUD entre los dos. */}
           <div className="flex items-center justify-between gap-2 md:hidden">
-            <TouchMoveLeft />
+            <TouchMoveLeft actions={touchActions} />
             <Hud />
-            <TouchMoveRight />
+            <TouchMoveRight actions={touchActions} />
           </div>
         </div>
 
